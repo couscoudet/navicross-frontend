@@ -59,26 +59,30 @@ export type ClosureType = "barrier" | "segment" | "zone";
 export interface Closure {
   id: number;
   event_id: number;
+  name: string;
   type: ClosureType;
-  polygon: GeoJSON.Polygon;
-  center: GeoJSON.Point;
+  polygon: GeoJSON.Polygon; // Point, LineString ou Polygon selon le type
   start_time: string;
   end_time: string;
+  description?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CreateClosureDto {
+  name: string;
   type: ClosureType;
-  polygon: GeoJSON.Polygon;
+  polygon: GeoJSON.Geometry; // Backend attend "polygon"
   start_time: string;
   end_time: string;
+  description?: string;
 }
 
 export interface UpdateClosureDto {
-  type?: ClosureType;
-  polygon?: GeoJSON.Polygon;
+  name?: string;
   start_time?: string;
   end_time?: string;
+  description?: string;
 }
 
 // Route types

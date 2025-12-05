@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { AdminPage } from "@/pages/AdminPage";
+import { EventDetailPage } from "@/pages/EventDetailPage";
 
 // Configuration React Query
 const queryClient = new QueryClient({
@@ -90,6 +91,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AdminPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/events/:slug"
+        element={
+          <ProtectedRoute>
+            <EventDetailPage />
           </ProtectedRoute>
         }
       />

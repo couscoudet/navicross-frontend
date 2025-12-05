@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MapLibre GL styles */
+@import "maplibre-gl/dist/maplibre-gl.css";
+@import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+
 /* Variables CSS pour cohérence avec design system */
 :root {
   /* Closures */

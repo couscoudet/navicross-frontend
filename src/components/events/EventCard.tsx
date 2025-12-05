@@ -1,10 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Calendar, Edit2, Trash2, Eye, EyeOff } from "lucide-react";
+import { Calendar, Edit2, Trash2, Eye, EyeOff, Map } from "lucide-react";
 import type { Event } from "@/types";
 
 interface EventCardProps {
@@ -21,6 +22,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   onTogglePublish,
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
 
   // Formater la date
   const eventDate = new Date(event.event_date);
@@ -99,15 +101,26 @@ export const EventCard: React.FC<EventCardProps> = ({
           {event.published ? "Dépublier" : "Publier"}
         </Button>
 
-        {/* Supprimer - 2ème ligne, 2 colonnes */}
+        {/* Closures - 2ème ligne, colonne gauche */}
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => navigate(`/admin/events/${event.slug}`)}
+          className="w-full"
+        >
+          <Map size={16} />
+          Closures
+        </Button>
+
+        {/* Supprimer - 2ème ligne, colonne droite */}
         <Button
           variant={isDeleting ? "danger" : "secondary"}
           size="sm"
           onClick={handleDelete}
-          className="col-span-2 w-full"
+          className="w-full"
         >
           <Trash2 size={16} />
-          {isDeleting ? "Confirmer la suppression ?" : "Supprimer"}
+          {isDeleting ? "Confirmer ?" : "Supprimer"}
         </Button>
       </div>
     </Card>
