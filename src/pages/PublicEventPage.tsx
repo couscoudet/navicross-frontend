@@ -7,6 +7,8 @@ import { RouteForm } from "@/components/public/RouteForm";
 import { RouteInfo } from "@/components/public/RouteInfo";
 import { NavigationPanel } from "@/components/public/NavigationPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useRouteProgress } from "@/hooks/useRouteProgress";
+import { usePositionInterpolation, easingFunctions } from "@/hooks/usePositionInterpolation";
 import { api } from "@/services/api";
 import type { Event, Closure } from "@/types";
 
@@ -35,12 +37,22 @@ export const PublicEventPage: React.FC = () => {
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [navigating, setNavigating] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState<Coordinates | null>(
-    null
-  );
+  const [rawPosition, setRawPosition] = useState<Coordinates | null>(null);
 
   const { watchPosition, clearWatch } = useGeolocation();
   const watchIdRef = useRef<number | null>(null);
+
+  // Smooth position interpolation for better visual experience
+  const currentPosition = usePositionInterpolation(rawPosition, {
+    duration: 1000, // 1 second smooth transition
+    easing: easingFunctions.easeOutQuad,
+  });
+
+  // Calculate route progress for visual feedback
+  const routeProgress = useRouteProgress(
+    currentPosition,
+    route?.geometry || null
+  );
 
   const { data: event } = useQuery<Event>({
     queryKey: ["event", slug],
@@ -121,12 +133,12 @@ export const PublicEventPage: React.FC = () => {
     setNavigating(true);
 
     // Définir position initiale
-    setCurrentPosition(origin);
+    setRawPosition(origin);
 
     // Fallback : si pas de GPS après 3s, rester sur origin
     const fallbackTimeout = setTimeout(() => {
       console.warn("GPS timeout, using origin as position");
-      setCurrentPosition(origin);
+      setRawPosition(origin);
     }, 3000);
 
     // Démarrer le suivi GPS
@@ -135,8 +147,8 @@ export const PublicEventPage: React.FC = () => {
       console.log("GPS position received:", pos);
       const currentPos = { lng: pos.lng, lat: pos.lat };
 
-      // Mettre à jour la position actuelle
-      setCurrentPosition(currentPos);
+      // Mettre à jour la position actuelle (raw, will be interpolated)
+      setRawPosition(currentPos);
       console.log("Current position set:", currentPos);
 
       // Recalculer si déviation > 50m
@@ -155,7 +167,7 @@ export const PublicEventPage: React.FC = () => {
 
   const handleStopNavigation = () => {
     setNavigating(false);
-    setCurrentPosition(null);
+    setRawPosition(null);
     if (watchIdRef.current !== null) {
       clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -245,6 +257,7 @@ export const PublicEventPage: React.FC = () => {
           destination={destination}
           currentPosition={currentPosition}
           navigating={navigating}
+          routeProgress={routeProgress}
         />
 
         {/* Navigation Panel - compact mobile */}
@@ -256,6 +269,7 @@ export const PublicEventPage: React.FC = () => {
               totalDistance={route.distance}
               totalDuration={route.duration}
               onStop={handleStopNavigation}
+              routeProgress={routeProgress}
             />
           </div>
         )}

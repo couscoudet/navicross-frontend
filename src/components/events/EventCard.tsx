@@ -109,7 +109,7 @@ export const EventCard: React.FC<EventCardProps> = ({
           className="w-full"
         >
           <Map size={16} />
-          Closures
+          Fermetures
         </Button>
 
         {/* Supprimer - 2ème ligne, colonne droite */}

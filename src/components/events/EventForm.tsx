@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AlertCircle } from "lucide-react";
 import type { CreateEventDto, UpdateEventDto, Event } from "@/types";
+import { slugify } from "@/utils/string-utils";
 
 // Props pour le mode création (pas d'event fourni)
 interface CreateEventFormProps {
@@ -38,7 +39,6 @@ export const EventForm: React.FC<EventFormProps> = (props) => {
   const isEditMode = !!eventData;
 
   const [formData, setFormData] = useState({
-    slug: eventData?.slug || "",
     name: eventData?.name || "",
     event_date: eventData?.event_date
       ? new Date(eventData.event_date).toISOString().slice(0, 16)
@@ -55,15 +55,6 @@ export const EventForm: React.FC<EventFormProps> = (props) => {
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    // Slug obligatoire uniquement en création
-    if (!isEditMode) {
-      if (!formData.slug) {
-        newErrors.slug = "Le slug est requis";
-      } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-        newErrors.slug = "Uniquement lettres minuscules, chiffres et tirets";
-      }
-    }
 
     if (!formData.name) {
       newErrors.name = "Le nom est requis";
@@ -110,9 +101,9 @@ export const EventForm: React.FC<EventFormProps> = (props) => {
         };
         await (onSubmit as (data: UpdateEventDto) => Promise<void>)(updateData);
       } else {
-        // Mode création
+        // Mode création - génération automatique du slug
         const createData: CreateEventDto = {
-          slug: formData.slug,
+          slug: slugify(formData.name),
           name: formData.name,
           event_date: new Date(formData.event_date).toISOString(),
           description: formData.description || undefined,
@@ -131,21 +122,6 @@ export const EventForm: React.FC<EventFormProps> = (props) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-4">
-        {/* Slug - uniquement en création */}
-        {!isEditMode && (
-          <Input
-            label="Slug"
-            type="text"
-            name="slug"
-            value={formData.slug}
-            onChange={handleChange}
-            error={errors.slug}
-            placeholder="marathon-paris-2025"
-            helperText="Identifiant unique (lettres minuscules, chiffres, tirets)"
-            disabled={isLoading}
-          />
-        )}
-
         {/* Nom */}
         <Input
           label="Nom de l'événement"

@@ -7,6 +7,17 @@ interface Coordinates {
   lat: number;
 }
 
+interface RouteProgress {
+  distanceTraveled: number;
+  distanceRemaining: number;
+  totalDistance: number;
+  percentComplete: number;
+  snappedPosition: Coordinates;
+  bearing: number;
+  isOnRoute: boolean;
+  deviationDistance: number;
+}
+
 interface PublicMapProps {
   closures: Closure[];
   route?: GeoJSON.LineString;
@@ -14,6 +25,7 @@ interface PublicMapProps {
   destination?: Coordinates | null;
   currentPosition?: Coordinates | null;
   navigating?: boolean;
+  routeProgress?: RouteProgress | null;
 }
 
 export const PublicMap: React.FC<PublicMapProps> = ({
@@ -23,6 +35,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   destination,
   currentPosition,
   navigating,
+  routeProgress,
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -30,6 +43,8 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
   const currentPosMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const cameraAnimationRef = useRef<number | null>(null);
+  const lastBearingRef = useRef<number>(0);
 
   // Initialiser la carte
   useEffect(() => {
@@ -145,41 +160,117 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     map.current.fitBounds(bounds, { padding: 50 });
   }, [closures, mapLoaded]);
 
-  // Afficher la route
+  // Afficher la route avec progression
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    if (map.current.getLayer("route")) map.current.removeLayer("route");
-    if (map.current.getSource("route")) map.current.removeSource("route");
+    // Remove existing layers
+    ["route-traveled", "route-remaining", "route"].forEach((layerId) => {
+      if (map.current!.getLayer(layerId)) {
+        map.current!.removeLayer(layerId);
+      }
+    });
+
+    // Remove existing sources
+    ["route-traveled", "route-remaining", "route"].forEach((sourceId) => {
+      if (map.current!.getSource(sourceId)) {
+        map.current!.removeSource(sourceId);
+      }
+    });
 
     if (!route) return;
 
-    map.current.addSource("route", {
-      type: "geojson",
-      data: {
-        type: "Feature",
-        properties: {},
-        geometry: route,
-      },
-    });
+    // If navigating and we have progress, show traveled vs remaining
+    if (navigating && routeProgress && routeProgress.percentComplete > 0) {
+      const coords = route.coordinates;
+      const totalPoints = coords.length;
+      const traveledIndex = Math.floor(
+        (routeProgress.percentComplete / 100) * totalPoints
+      );
 
-    map.current.addLayer({
-      id: "route",
-      type: "line",
-      source: "route",
-      paint: {
-        "line-color": "#2563EB",
-        "line-width": 4,
-      },
-    });
+      // Traveled portion (green)
+      if (traveledIndex > 0) {
+        const traveledCoords = coords.slice(0, traveledIndex + 1);
+        map.current.addSource("route-traveled", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: traveledCoords,
+            },
+          },
+        });
 
-    // Fit bounds pour voir la route
-    const bounds = new maplibregl.LngLatBounds();
-    route.coordinates.forEach(([lng, lat]) => {
-      bounds.extend([lng, lat]);
-    });
-    map.current.fitBounds(bounds, { padding: 100 });
-  }, [route, mapLoaded]);
+        map.current.addLayer({
+          id: "route-traveled",
+          type: "line",
+          source: "route-traveled",
+          paint: {
+            "line-color": "#22c55e",
+            "line-width": 5,
+            "line-opacity": 0.8,
+          },
+        });
+      }
+
+      // Remaining portion (blue)
+      if (traveledIndex < totalPoints - 1) {
+        const remainingCoords = coords.slice(traveledIndex);
+        map.current.addSource("route-remaining", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: remainingCoords,
+            },
+          },
+        });
+
+        map.current.addLayer({
+          id: "route-remaining",
+          type: "line",
+          source: "route-remaining",
+          paint: {
+            "line-color": "#2563EB",
+            "line-width": 5,
+          },
+        });
+      }
+    } else {
+      // Show full route in blue
+      map.current.addSource("route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: route,
+        },
+      });
+
+      map.current.addLayer({
+        id: "route",
+        type: "line",
+        source: "route",
+        paint: {
+          "line-color": "#2563EB",
+          "line-width": 5,
+        },
+      });
+
+      // Fit bounds pour voir la route (only when not navigating)
+      if (!navigating) {
+        const bounds = new maplibregl.LngLatBounds();
+        route.coordinates.forEach(([lng, lat]) => {
+          bounds.extend([lng, lat]);
+        });
+        map.current.fitBounds(bounds, { padding: 100 });
+      }
+    }
+  }, [route, mapLoaded, navigating, routeProgress]);
 
   // Markers origine/destination
   useEffect(() => {
@@ -235,18 +326,27 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     });
   }, [origin, mapLoaded, navigating]);
 
-  // Marker position actuelle (navigation) avec orientation
+  // Marker position actuelle (navigation) avec orientation fluide
   useEffect(() => {
     console.log("Navigation effect:", {
       navigating,
       currentPosition,
       hasRoute: !!route,
+      routeProgress,
     });
 
     if (!map.current) return;
 
     if (!navigating) {
       currentPosMarkerRef.current?.remove();
+      currentPosMarkerRef.current = null;
+
+      // Cancel any ongoing animation
+      if (cameraAnimationRef.current) {
+        cancelAnimationFrame(cameraAnimationRef.current);
+        cameraAnimationRef.current = null;
+      }
+
       // Réinitialiser la caméra
       if (mapLoaded) {
         map.current.easeTo({
@@ -261,55 +361,104 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     if (currentPosition && route) {
       console.log("Updating navigation:", currentPosition);
 
-      // Calculer le bearing (direction) vers le prochain point de la route
-      const routeCoords = route.coordinates;
-      const bearing = calculateBearing(currentPosition, routeCoords);
+      // Use bearing from routeProgress if available, otherwise calculate
+      let bearing = 0;
+      let displayPosition = currentPosition;
 
-      console.log("Bearing:", bearing);
+      if (routeProgress && routeProgress.isOnRoute) {
+        bearing = routeProgress.bearing;
+        // Use snapped position for smoother experience when on route
+        displayPosition = routeProgress.snappedPosition;
+      } else {
+        bearing = calculateBearing(currentPosition, route.coordinates);
+      }
+
+      // Smooth bearing transition
+      let bearingDiff = bearing - lastBearingRef.current;
+      // Normalize to -180 to 180
+      if (bearingDiff > 180) bearingDiff -= 360;
+      if (bearingDiff < -180) bearingDiff += 360;
+
+      const smoothBearing = lastBearingRef.current + bearingDiff * 0.3; // Smooth by 30%
+      lastBearingRef.current = smoothBearing;
+
+      console.log("Bearing:", bearing, "Smooth:", smoothBearing);
 
       if (currentPosMarkerRef.current) {
-        // Update position et rotation
+        // Update position with smooth transition
         currentPosMarkerRef.current.setLngLat([
-          currentPosition.lng,
-          currentPosition.lat,
+          displayPosition.lng,
+          displayPosition.lat,
         ]);
+
         const el = currentPosMarkerRef.current.getElement();
-        el.style.transform = `rotate(${bearing}deg)`;
+        const arrow = el.querySelector(".navigation-arrow") as HTMLElement;
+        if (arrow) {
+          arrow.style.transition = "transform 0.5s ease-out";
+          arrow.style.transform = `rotate(${bearing}deg)`;
+        }
       } else {
-        // Créer marker avec flèche directionnelle
+        // Créer marker avec flèche directionnelle améliorée
         const el = document.createElement("div");
+        el.className = "navigation-marker";
         el.innerHTML = `
           <div class="relative">
-            <div class="absolute inset-0 w-10 h-10 bg-blue-500 rounded-full opacity-30 animate-ping"></div>
-            <div class="relative w-10 h-10 bg-blue-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2L12 22M12 2L6 8M12 2L18 8"/>
-              </svg>
+            <div class="absolute inset-0 w-12 h-12 bg-blue-500 rounded-full opacity-20 animate-ping"></div>
+            <div class="relative w-12 h-12 bg-blue-600 rounded-full border-4 border-white shadow-2xl flex items-center justify-center">
+              <div class="navigation-arrow" style="transition: transform 0.5s ease-out; transform: rotate(${bearing}deg)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+                  <path d="M12 2L12 22M12 2L6 8M12 2L18 8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
             </div>
           </div>
         `;
-        el.style.transform = `rotate(${bearing}deg)`;
-        el.style.transformOrigin = "center";
 
         currentPosMarkerRef.current = new maplibregl.Marker({
           element: el,
-          rotationAlignment: "map",
+          anchor: "center",
         })
-          .setLngLat([currentPosition.lng, currentPosition.lat])
+          .setLngLat([displayPosition.lng, displayPosition.lat])
           .addTo(map.current);
       }
 
-      // Caméra en mode navigation : zoom, pitch et bearing
-      map.current.easeTo({
-        center: [currentPosition.lng, currentPosition.lat],
-        zoom: 17,
-        pitch: 60, // Inclinaison 3D
-        bearing: bearing, // Orientation dans le sens de la route
-        duration: 1000,
-        essential: true,
-      });
+      // Smooth camera follow avec interpolation
+      const smoothCameraFollow = () => {
+        if (!map.current || !navigating) return;
+
+        const currentCenter = map.current.getCenter();
+        const currentZoom = map.current.getZoom();
+        const currentPitch = map.current.getPitch();
+
+        // Calculate smooth interpolation
+        const lngDiff = displayPosition.lng - currentCenter.lng;
+        const latDiff = displayPosition.lat - currentCenter.lat;
+
+        // Only update if there's significant movement
+        if (Math.abs(lngDiff) > 0.00001 || Math.abs(latDiff) > 0.00001) {
+          map.current.easeTo({
+            center: [
+              currentCenter.lng + lngDiff * 0.2, // Smooth by 20%
+              currentCenter.lat + latDiff * 0.2,
+            ],
+            zoom: currentZoom < 16 ? 17 : currentZoom,
+            pitch: currentPitch < 50 ? 55 : currentPitch,
+            bearing: smoothBearing,
+            duration: 300,
+            essential: true,
+          });
+        }
+
+        cameraAnimationRef.current = requestAnimationFrame(smoothCameraFollow);
+      };
+
+      // Cancel previous animation and start new one
+      if (cameraAnimationRef.current) {
+        cancelAnimationFrame(cameraAnimationRef.current);
+      }
+      cameraAnimationRef.current = requestAnimationFrame(smoothCameraFollow);
     }
-  }, [currentPosition, navigating, route, mapLoaded]);
+  }, [currentPosition, navigating, route, mapLoaded, routeProgress]);
 
   // Calculer le bearing entre position actuelle et prochain point de route
   const calculateBearing = (

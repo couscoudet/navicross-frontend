@@ -82,6 +82,8 @@ export const EventDetailPage: React.FC = () => {
     setSelectedType(type);
     setEditingClosure(null);
     setDrawingGeometry(null);
+    // Auto-collapse le panneau après sélection du type
+    setShowPanel(false);
   };
 
   const handleClosureClick = (closure: Closure) => {
@@ -231,63 +233,70 @@ export const EventDetailPage: React.FC = () => {
         </div>
 
         {showPanel && (
-          <div className="absolute inset-x-4 top-4 bg-white rounded-2xl shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="absolute inset-x-0 bottom-0 md:inset-x-4 md:top-4 md:bottom-auto bg-white md:rounded-2xl rounded-t-3xl shadow-2xl max-h-[60vh] md:max-h-[70vh] overflow-hidden flex flex-col animate-slide-up">
+            {/* Handle bar pour mobile */}
+            <div className="md:hidden flex justify-center pt-2 pb-1">
+              <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
+            </div>
+
             <div className="p-4 flex-shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-900">
-                  Closures
+                  Fermetures ({closures.length})
                 </h2>
                 <button
                   onClick={() => setShowPanel(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
                 >
                   <X size={16} />
                 </button>
               </div>
 
-              <AddressSearch onSelectAddress={handleSelectAddress} />
+              <div className="mb-3">
+                <AddressSearch onSelectAddress={handleSelectAddress} />
+              </div>
 
-              <div className="grid grid-cols-4 gap-2 mb-3">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => handleStartDrawing("barrier")}
-                  className={`p-2 flex flex-col items-center gap-1 border rounded-lg text-xs font-medium ${
+                  className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "barrier"
-                      ? "bg-orange-50 border-orange-500"
-                      : "border-gray-200"
+                      ? "bg-orange-50 border-orange-500 shadow-sm"
+                      : "border-gray-200 hover:border-orange-300"
                   }`}
                 >
-                  <MapPin size={18} />
+                  <MapPin size={20} className={selectedType === "barrier" ? "text-orange-600" : "text-gray-600"} />
                   <span className="text-[10px]">Barrage</span>
                 </button>
                 <button
                   onClick={() => handleStartDrawing("segment")}
-                  className={`p-2 flex flex-col items-center gap-1 border rounded-lg text-xs font-medium ${
+                  className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "segment"
-                      ? "bg-purple-50 border-purple-500"
-                      : "border-gray-200"
+                      ? "bg-purple-50 border-purple-500 shadow-sm"
+                      : "border-gray-200 hover:border-purple-300"
                   }`}
                 >
-                  <Route size={18} />
+                  <Route size={20} className={selectedType === "segment" ? "text-purple-600" : "text-gray-600"} />
                   <span className="text-[10px]">Tronçon</span>
                 </button>
                 <button
                   onClick={() => handleStartDrawing("zone")}
-                  className={`p-2 flex flex-col items-center gap-1 border rounded-lg text-xs font-medium ${
+                  className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "zone"
-                      ? "bg-red-50 border-red-500"
-                      : "border-gray-200"
+                      ? "bg-red-50 border-red-500 shadow-sm"
+                      : "border-gray-200 hover:border-red-300"
                   }`}
                 >
-                  <MapIcon size={18} />
+                  <MapIcon size={20} className={selectedType === "zone" ? "text-red-600" : "text-gray-600"} />
                   <span className="text-[10px]">Zone</span>
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingGpx}
-                  className="p-2 flex flex-col items-center gap-1 border border-gray-200 rounded-lg text-xs font-medium hover:border-primary disabled:opacity-50"
+                  className="p-2.5 flex flex-col items-center gap-1.5 border border-gray-200 rounded-xl text-xs font-medium hover:border-primary transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <FileSpreadsheet size={18} />
-                  <span className="text-[10px]">GPX</span>
+                  <FileSpreadsheet size={20} className="text-gray-600" />
+                  <span className="text-[10px]">{uploadingGpx ? "..." : "GPX"}</span>
                 </button>
               </div>
               <input
@@ -300,17 +309,20 @@ export const EventDetailPage: React.FC = () => {
             </div>
 
             {closures.length > 0 && (
-              <div className="border-t border-gray-200 p-4 overflow-y-auto flex-1">
+              <div className="border-t border-gray-200 px-4 pb-4 pt-3 overflow-y-auto flex-1">
+                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Liste ({closures.length})
+                </div>
                 <div className="space-y-2">
                   {closures.map((closure) => (
                     <div
                       key={closure.id}
                       onClick={() => handleClosureClick(closure)}
-                      className="p-3 bg-gray-50 rounded-lg active:bg-gray-100"
+                      className="p-3 bg-gray-50 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-gray-900 truncate">
+                          <div className="font-medium text-sm text-gray-900 truncate mb-0.5">
                             {closure.name}
                           </div>
                           <div className="text-xs text-gray-500">
@@ -330,7 +342,7 @@ export const EventDetailPage: React.FC = () => {
                             e.stopPropagation();
                             handleDelete(closure);
                           }}
-                          className="px-2 py-1 text-xs text-red-600 bg-white border border-red-200 rounded"
+                          className="px-2.5 py-1.5 text-xs text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors flex-shrink-0"
                         >
                           Suppr.
                         </button>
@@ -344,13 +356,55 @@ export const EventDetailPage: React.FC = () => {
         )}
 
         {!showPanel && (
-          <button
-            onClick={() => setShowPanel(true)}
-            className="absolute top-4 left-4 bg-primary text-white px-4 py-2.5 rounded-full shadow-xl active:scale-95 transition-transform flex items-center gap-2 text-sm font-medium"
-          >
-            <MapPin size={16} />
-            <span>Fermetures</span>
-          </button>
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
+            <button
+              onClick={() => setShowPanel(true)}
+              className={`text-white px-4 py-2.5 rounded-full shadow-xl active:scale-95 transition-all flex items-center gap-2 text-sm font-medium ${
+                selectedType
+                  ? selectedType === "barrier"
+                    ? "bg-orange-500"
+                    : selectedType === "segment"
+                    ? "bg-purple-500"
+                    : "bg-red-500"
+                  : "bg-primary"
+              }`}
+            >
+              {selectedType ? (
+                selectedType === "barrier" ? (
+                  <MapPin size={16} />
+                ) : selectedType === "segment" ? (
+                  <Route size={16} />
+                ) : (
+                  <MapIcon size={16} />
+                )
+              ) : (
+                <MapPin size={16} />
+              )}
+              <span>
+                {selectedType
+                  ? selectedType === "barrier"
+                    ? "Mode Barrage"
+                    : selectedType === "segment"
+                    ? "Mode Tronçon"
+                    : "Mode Zone"
+                  : "Fermetures"}
+              </span>
+              {selectedType && (
+                <span className="bg-white bg-opacity-30 px-1.5 py-0.5 rounded text-xs">
+                  Dessiner
+                </span>
+              )}
+            </button>
+            {selectedType && (
+              <button
+                onClick={handleCancel}
+                className="bg-white text-gray-700 px-3 py-2 rounded-full shadow-lg active:scale-95 transition-all flex items-center gap-1.5 text-xs font-medium border border-gray-200"
+              >
+                <X size={14} />
+                <span>Annuler</span>
+              </button>
+            )}
+          </div>
         )}
 
         <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-lg p-3">

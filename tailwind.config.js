@@ -55,6 +55,15 @@ export default {
         "card-hover": "0 4px 6px rgba(0, 0, 0, 0.1)",
         focus: "0 0 0 3px rgba(37, 99, 235, 0.1)",
       },
+      keyframes: {
+        "slide-up": {
+          "0%": { transform: "translateY(100%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+      },
+      animation: {
+        "slide-up": "slide-up 0.3s ease-out",
+      },
     },
   },
   plugins: [],

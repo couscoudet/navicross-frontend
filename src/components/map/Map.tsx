@@ -26,11 +26,53 @@ export const Map: React.FC<MapProps> = ({
   const map = useRef<maplibregl.Map | null>(null);
   const draw = useRef<MapboxDraw | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [initialFitDone, setInitialFitDone] = useState(false);
   const selectedTypeRef = useRef(selectedType);
 
   useEffect(() => {
     selectedTypeRef.current = selectedType;
   }, [selectedType]);
+
+  // Fonction pour calculer le bounding box de toutes les closures
+  const fitMapToClosures = () => {
+    if (!map.current || !mapLoaded || closures.length === 0 || initialFitDone) return;
+
+    try {
+      const bounds = new maplibregl.LngLatBounds();
+
+      closures.forEach((closure) => {
+        if (closure.polygon?.coordinates) {
+          const coords = closure.polygon.coordinates[0];
+          coords.forEach((coord: number[]) => {
+            if (Array.isArray(coord) && coord.length >= 2) {
+              bounds.extend([coord[0], coord[1]] as [number, number]);
+            }
+          });
+        }
+      });
+
+      if (!bounds.isEmpty()) {
+        map.current.fitBounds(bounds, {
+          padding: { top: 100, bottom: 100, left: 100, right: 100 },
+          maxZoom: 16,
+          duration: 1000,
+        });
+        setInitialFitDone(true);
+      }
+    } catch (error) {
+      console.error("Error fitting map to closures:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (mapLoaded && closures.length > 0 && !initialFitDone) {
+      // Attendre un peu que les layers soient ajoutés
+      const timer = setTimeout(() => {
+        fitMapToClosures();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [mapLoaded, closures, initialFitDone]);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -72,7 +114,7 @@ export const Map: React.FC<MapProps> = ({
           type: "fill",
           paint: {
             "fill-color": "#EF4444",
-            "fill-opacity": 0.4,
+            "fill-opacity": 0, // Pas de remplissage pendant le dessin/édition
           },
         },
         {
@@ -210,16 +252,15 @@ export const Map: React.FC<MapProps> = ({
       },
     });
 
-    // Segments - Purple fills
+    // Segments - Purple strokes only (no fill)
     map.current.addLayer({
       id: "closures-segments",
-      type: "fill",
+      type: "line",
       source: "closures",
       filter: ["==", ["get", "type"], "segment"],
       paint: {
-        "fill-color": "#8B5CF6",
-        "fill-opacity": 0.5,
-        "fill-outline-color": "#7C3AED",
+        "line-color": "#8B5CF6",
+        "line-width": 4,
       },
     });
 
