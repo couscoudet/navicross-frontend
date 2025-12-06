@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import type { Closure } from "@/types";
+import { validateClosureSize } from "@/utils/closure-validation";
 
 interface MapProps {
   closures: Closure[];
@@ -100,6 +101,18 @@ export const Map: React.FC<MapProps> = ({
     map.current.on("draw.create", (e) => {
       if (e.features && e.features[0] && selectedTypeRef.current) {
         const geometry = e.features[0].geometry as GeoJSON.Geometry;
+
+        // Valider la taille pour les zones et segments
+        if (geometry.type === "Polygon") {
+          const validation = validateClosureSize(geometry as GeoJSON.Polygon);
+
+          if (!validation.valid) {
+            alert(validation.message);
+            draw.current?.deleteAll();
+            return;
+          }
+        }
+
         onDrawCreate(geometry, selectedTypeRef.current);
         draw.current?.deleteAll();
       }

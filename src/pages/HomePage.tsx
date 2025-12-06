@@ -1,108 +1,147 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Calendar, Navigation, Lock } from "lucide-react";
 import { Header } from "@/components/layout/Header";
-import { Button } from "@/components/ui/Button";
-import { LayoutDashboard, MapPin, Route } from "lucide-react";
+import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import type { Event } from "@/types";
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  const { data: events = [], isLoading } = useQuery<Event[]>({
+    queryKey: ["events"],
+    queryFn: api.events.getAll,
+  });
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header currentPage="home" />
 
-      <main className="container-custom py-12">
-        <div className="max-w-4xl mx-auto">
-          {/* Hero section */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-6">
-              <MapPin className="text-primary" size={40} />
+      <main className="container-custom py-8">
+        {/* Hero Section */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Navigation intelligente lors d'événements
+          </h1>
+          <p className="text-gray-600">
+            Calculez votre itinéraire en évitant les fermetures de routes
+            pendant les événements sportifs
+          </p>
+          {!isAuthenticated && (
+            <button
+              onClick={() => navigate("/login")}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
+            >
+              <Lock size={16} />
+              Connexion administrateur
+            </button>
+          )}
+        </div>
+
+        {/* Liste des événements */}
+        {events.length > 0 ? (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              📅 Événements ({events.length})
+            </h2>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Bienvenue sur Navicross
-            </h1>
-            <p className="text-lg text-gray-600">
-              Plateforme de navigation intelligente pour événements sportifs
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+            <Calendar size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Aucun événement
+            </h3>
+            <p className="text-gray-600">
+              Aucun événement n'est disponible pour le moment.
             </p>
           </div>
+        )}
+      </main>
+    </div>
+  );
+};
 
-          {/* Fonctionnalités */}
-          <div className="grid md:grid-cols-2 gap-6 mb-12">
-            {/* Pour les organisateurs */}
-            <div className="bg-white rounded-lg shadow-card p-8 hover:shadow-card-hover transition-shadow">
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mb-4">
-                <LayoutDashboard className="text-primary" size={24} />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">
-                Pour les organisateurs
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Créez vos événements et définissez les zones fermées à la
-                circulation. Gérez facilement les barrages, tronçons et zones
-                interdites.
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => navigate("/admin")}
-                fullWidth
-              >
-                <LayoutDashboard size={20} />
-                Accéder à l'administration
-              </Button>
-            </div>
+interface EventCardProps {
+  event: Event;
+}
 
-            {/* Pour les spectateurs */}
-            <div className="bg-white rounded-lg shadow-card p-8">
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mb-4">
-                <Route className="text-success" size={24} />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">
-                Pour les spectateurs
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Calculez votre itinéraire en évitant automatiquement les zones
-                fermées. Arrivez à destination sans encombre le jour de
-                l'événement.
-              </p>
-              <Button variant="secondary" fullWidth disabled>
-                <Route size={20} />
-                Navigation (bientôt)
-              </Button>
-            </div>
-          </div>
+const EventCard: React.FC<EventCardProps> = ({ event }) => {
+  const navigate = useNavigate();
 
-          {/* Statut du projet */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="font-semibold text-blue-900 mb-3">
-              📍 Progression du projet
-            </h3>
-            <div className="space-y-2 text-sm text-blue-800">
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✅</span>
-                <span>Étape 1 : Authentification complète</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600">🔵</span>
-                <span className="font-semibold">
-                  Étape 2 : Gestion des événements (en cours)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">⚪</span>
-                <span className="text-gray-600">
-                  Étape 3 : Carte et closures (à venir)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">⚪</span>
-                <span className="text-gray-600">
-                  Étape 4 : Navigation spectateurs (à venir)
-                </span>
-              </div>
-            </div>
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  return (
+    <div
+      onClick={() => navigate(`/events/${event.slug}`)}
+      className="bg-white rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all cursor-pointer group"
+    >
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors">
+            {event.name}
+          </h3>
+          {event.published && (
+            <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+              Publié
+            </span>
+          )}
+        </div>
+
+        {/* Description */}
+        {event.description && (
+          <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+            {event.description}
+          </p>
+        )}
+
+        {/* Date */}
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+          <Calendar size={16} className="text-gray-400" />
+          <span>{formatDate(event.event_date)}</span>
+        </div>
+
+        {/* CTA */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
+            <Navigation size={16} />
+            <span>Voir la navigation</span>
+            <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+              →
+            </span>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

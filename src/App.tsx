@@ -67,7 +67,13 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Routes publiques */}
+      {/* Route publique d'accueil */}
+      <Route path="/" element={<HomePage />} />
+
+      {/* Route publique événements */}
+      <Route path="/events/:slug" element={<PublicEventPage />} />
+
+      {/* Login */}
       <Route
         path="/login"
         element={
@@ -77,16 +83,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Routes protégées */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        }
-      />
-
+      {/* Routes protégées admin */}
       <Route
         path="/admin"
         element={
@@ -104,8 +101,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      <Route path="/events/:slug" element={<PublicEventPage />} />
 
       {/* Redirection par défaut */}
       <Route path="*" element={<Navigate to="/" replace />} />

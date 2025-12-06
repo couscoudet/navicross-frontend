@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Header } from "@/components/layout/Header";
 import { PublicMap } from "@/components/public/PublicMap";
 import { RouteForm } from "@/components/public/RouteForm";
 import { RouteInfo } from "@/components/public/RouteInfo";
@@ -58,21 +59,42 @@ export const PublicEventPage: React.FC = () => {
         body: JSON.stringify({
           origin: [orig.lng, orig.lat],
           destination: [dest.lng, dest.lat],
-          profile: "driving", // Requis par l'API
-          eventSlug: event.slug, // Utiliser slug au lieu de id
+          profile: "driving",
+          eventSlug: event.slug,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Route calculation failed");
+
+        // Gérer les erreurs Valhalla
+        if (
+          error.error_code === 442 ||
+          error.error?.includes("No path could be found")
+        ) {
+          throw new Error(
+            "Aucun itinéraire trouvé. Les zones à éviter bloquent tous les chemins possibles."
+          );
+        }
+
+        if (error.error_code === 171) {
+          throw new Error(
+            "Zone à éviter trop grande. Veuillez réduire la taille des fermetures."
+          );
+        }
+
+        throw new Error(error.message || "Impossible de calculer l'itinéraire");
       }
 
       const data = await response.json();
       setRoute(data);
     } catch (error) {
       console.error("Route error:", error);
-      alert("Impossible de calculer l'itinéraire");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Impossible de calculer l'itinéraire"
+      );
     } finally {
       setCalculating(false);
     }
@@ -102,26 +124,33 @@ export const PublicEventPage: React.FC = () => {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
-        <div>
+      <Header />
+
+      {/* Event Info Bar */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
+        <div className="container-custom">
           <h1 className="text-lg font-semibold text-gray-900">{event.name}</h1>
-          <p className="text-xs text-gray-500">
-            {new Date(event.event_date).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
+          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+            <span>
+              {new Date(event.event_date).toLocaleDateString("fr-FR", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </span>
             {activeClosures.length > 0 && (
-              <span className="ml-2 text-red-600">
-                • {activeClosures.length} fermeture
-                {activeClosures.length > 1 ? "s" : ""} active
-                {activeClosures.length > 1 ? "s" : ""}
-              </span>
+              <div className="flex items-center gap-1.5 text-red-600">
+                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                <span>
+                  {activeClosures.length} fermeture
+                  {activeClosures.length > 1 ? "s" : ""} active
+                  {activeClosures.length > 1 ? "s" : ""}
+                </span>
+              </div>
             )}
-          </p>
+          </div>
         </div>
-      </header>
+      </div>
 
       {/* Map */}
       <div className="flex-1 relative overflow-hidden">

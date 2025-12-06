@@ -350,7 +350,7 @@ export const EventDetailPage: React.FC = () => {
             className="absolute top-4 left-4 bg-primary text-white px-4 py-2.5 rounded-full shadow-xl active:scale-95 transition-transform flex items-center gap-2 text-sm font-medium"
           >
             <MapPin size={16} />
-            <span>Closures</span>
+            <span>Fermetures</span>
           </button>
         )}
 
