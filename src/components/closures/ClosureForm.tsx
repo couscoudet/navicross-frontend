@@ -154,7 +154,7 @@ export const ClosureForm: React.FC<ClosureFormProps> = ({
         {/* Type (lecture seule) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Type de closure
+            Type de fermeture
           </label>
           <div className="px-4 py-3 bg-gray-50 rounded text-gray-700 font-medium">
             {typeLabels[type]}

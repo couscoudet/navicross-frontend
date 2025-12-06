@@ -41,7 +41,7 @@ export const ClosureList: React.FC<ClosureListProps> = ({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="pb-4 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Closures</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Fermetures</h2>
 
         {/* Boutons de création */}
         <div className="grid grid-cols-3 gap-2 mb-4">
