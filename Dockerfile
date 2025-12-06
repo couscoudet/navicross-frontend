@@ -1,35 +1,29 @@
 # ============================================
-# Stage 1: Build the React application
+# Stage 1: Build the React/Vite application
 # ============================================
 FROM node:20-alpine AS builder
 
 # Enable and activate pnpm via corepack
-# This ensures pnpm is available without manual installation
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files for dependency installation
-# pnpm requires both package.json and pnpm-lock.yaml
+# Copy package files and install dependencies
 COPY package.json pnpm-lock.yaml ./
-
-# Install dependencies
-# Using --frozen-lockfile for clean, reproducible builds in CI/CD
-# This ensures exact versions from pnpm-lock.yaml are installed
 RUN pnpm install --frozen-lockfile
 
-# Copy source code and configuration files
+# Copy source code
 COPY . .
 
-# Build arguments for environment variables
-# These can be overridden at build time with --build-arg
+# Build argument for API URL
 ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
+# Optional: set default value if not passed
+ENV VITE_API_URL=${VITE_API_URL:-https://api.navicross.example.com}
 
-# Build the application
-# TypeScript compilation + Vite build using pnpm
-RUN pnpm run build
+# Build the application with the build argument injected into Vite
+# This ensures import.meta.env.VITE_API_URL contains the correct URL
+RUN pnpm run build -- --define:import.meta.env.VITE_API_URL="'${VITE_API_URL}'"
 
 # ============================================
 # Stage 2: Serve with Nginx
@@ -45,11 +39,9 @@ server {
     listen 80;
     server_name _;
 
-    # Root directory for static files
     root /usr/share/nginx/html;
     index index.html;
 
-    # Gzip compression for better performance
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
@@ -57,24 +49,20 @@ server {
                application/x-javascript application/xml+rss
                application/javascript application/json;
 
-    # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # Cache static assets
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
 
-    # SPA fallback - serve index.html for all routes
     location / {
         try_files \$uri \$uri/ /index.html;
     }
 
-    # Health check endpoint
     location /health {
         access_log off;
         return 200 "healthy\n";
@@ -83,25 +71,22 @@ server {
 }
 EOF
 
-# Copy built files from builder stage
+# Copy built files from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create non-root user for nginx
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
+# Fix permissions for non-root nginx user
+RUN chown -R nginx:nginx /usr/share/nginx/html \
+    && chown -R nginx:nginx /var/cache/nginx \
+    && chown -R nginx:nginx /var/log/nginx \
+    && touch /var/run/nginx.pid \
+    && chown -R nginx:nginx /var/run/nginx.pid
 
-# Switch to non-root user
 USER nginx
 
-# Expose port 80
 EXPOSE 80
 
-# Health check
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
