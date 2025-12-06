@@ -16,10 +16,12 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Build argument for API URL
+# Build argument for API URL (REQUIRED - no default value)
 ARG VITE_API_URL
-# Optional: set default value if not passed
-ENV VITE_API_URL=${VITE_API_URL:-https://api.navicross.example.com}
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Verify that VITE_API_URL is set (fail build if empty)
+RUN test -n "$VITE_API_URL" || (echo "ERROR: VITE_API_URL build argument is required" && exit 1)
 
 # Build the application with the build argument injected into Vite
 # This ensures import.meta.env.VITE_API_URL contains the correct URL
