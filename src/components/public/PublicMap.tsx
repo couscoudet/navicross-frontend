@@ -26,6 +26,8 @@ interface PublicMapProps {
   currentPosition?: Coordinates | null;
   navigating?: boolean;
   routeProgress?: RouteProgress | null;
+  onOriginSelect?: (coords: Coordinates) => void;
+  onDestinationSelect?: (coords: Coordinates) => void;
 }
 
 export const PublicMap: React.FC<PublicMapProps> = ({
@@ -36,6 +38,8 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   currentPosition,
   navigating,
   routeProgress,
+  onOriginSelect,
+  onDestinationSelect,
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -45,6 +49,8 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   const currentPosMarkerRef = useRef<maplibregl.Marker | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
   const lastBearingRef = useRef<number>(0);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Initialiser la carte
   useEffect(() => {
@@ -66,6 +72,93 @@ export const PublicMap: React.FC<PublicMapProps> = ({
       map.current = null;
     };
   }, []);
+
+  // Gérer les appuis longs pour sélectionner origine/destination
+  useEffect(() => {
+    if (!map.current || !mapLoaded || navigating) return;
+    if (!onOriginSelect && !onDestinationSelect) return;
+
+    const handleLongPress = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      // Ne pas déclencher si on est en navigation
+      if (navigating) return;
+
+      const coords = {
+        lng: e.lngLat.lng,
+        lat: e.lngLat.lat,
+      };
+
+      // Créer un marqueur temporaire pour montrer l'appui long
+      const el = document.createElement("div");
+      el.className = "long-press-indicator";
+      el.innerHTML = `
+        <div class="relative">
+          <div class="w-16 h-16 bg-blue-500 rounded-full opacity-30 animate-pulse"></div>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-8 h-8 bg-blue-600 rounded-full border-2 border-white"></div>
+          </div>
+        </div>
+      `;
+
+      longPressMarkerRef.current = new maplibregl.Marker({
+        element: el,
+        anchor: "center",
+      })
+        .setLngLat([coords.lng, coords.lat])
+        .addTo(map.current!);
+
+      // Démarrer le timer d'appui long (500ms)
+      longPressTimerRef.current = setTimeout(() => {
+        // Supprimer le marqueur temporaire
+        longPressMarkerRef.current?.remove();
+        longPressMarkerRef.current = null;
+
+        // Déterminer si on sélectionne l'origine ou la destination
+        if (!origin && onOriginSelect) {
+          onOriginSelect(coords);
+        } else if (origin && !destination && onDestinationSelect) {
+          onDestinationSelect(coords);
+        } else if (origin && destination) {
+          // Si les deux sont définis, réinitialiser et commencer par l'origine
+          if (onOriginSelect) {
+            onOriginSelect(coords);
+          }
+        }
+      }, 500);
+    };
+
+    const handlePressEnd = () => {
+      // Annuler le timer si l'utilisateur relâche avant 500ms
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      // Supprimer le marqueur temporaire
+      longPressMarkerRef.current?.remove();
+      longPressMarkerRef.current = null;
+    };
+
+    // Ajouter les listeners pour mouse et touch
+    map.current.on("mousedown", handleLongPress);
+    map.current.on("mouseup", handlePressEnd);
+    map.current.on("mousemove", handlePressEnd); // Annuler si on bouge
+    map.current.on("touchstart", handleLongPress);
+    map.current.on("touchend", handlePressEnd);
+    map.current.on("touchmove", handlePressEnd); // Annuler si on bouge
+
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+      longPressMarkerRef.current?.remove();
+
+      map.current?.off("mousedown", handleLongPress);
+      map.current?.off("mouseup", handlePressEnd);
+      map.current?.off("mousemove", handlePressEnd);
+      map.current?.off("touchstart", handleLongPress);
+      map.current?.off("touchend", handlePressEnd);
+      map.current?.off("touchmove", handlePressEnd);
+    };
+  }, [mapLoaded, navigating, origin, destination, onOriginSelect, onDestinationSelect]);
 
   // Afficher les closures
   useEffect(() => {

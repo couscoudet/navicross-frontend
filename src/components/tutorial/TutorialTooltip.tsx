@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTutorial } from "@/contexts/TutorialContext";
-import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 
 export const TutorialTooltip: React.FC = () => {
   const { isActive, currentStep, steps, nextStep, prevStep, skipTutorial } = useTutorial();
@@ -10,23 +10,45 @@ export const TutorialTooltip: React.FC = () => {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const retryCountRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isActive || steps.length === 0) {
       setIsVisible(false);
+      retryCountRef.current = 0;
       return;
     }
 
     const step = steps[currentStep];
     if (!step) return;
 
-    // Attendre un peu pour que l'élément soit rendu
+    // Reset retry count pour la nouvelle étape
+    retryCountRef.current = 0;
+
+    // Déclencher l'action automatique si elle existe
+    if (step.action) {
+      try {
+        step.action();
+      } catch (error) {
+        console.error("Tutorial action error:", error);
+      }
+    }
+
+    // Attendre un peu pour que l'élément soit rendu (plus long pour laisser le temps)
     const timer = setTimeout(() => {
       const targetElement = document.querySelector(step.target);
 
       if (!targetElement) {
         console.warn(`Tutorial target not found: ${step.target}`);
-        setIsVisible(false);
+
+        // Passer à l'étape suivante ou terminer
+        if (currentStep < steps.length - 1) {
+          console.log("Auto-skipping to next step...");
+          nextStep();
+        } else {
+          console.log("Last step, ending tutorial...");
+          skipTutorial();
+        }
         return;
       }
 
@@ -81,13 +103,18 @@ export const TutorialTooltip: React.FC = () => {
       return () => {
         targetElement.classList.remove("tutorial-highlight");
       };
-    }, 100);
+    }, 300); // Augmenté à 300ms pour laisser plus de temps
 
     return () => clearTimeout(timer);
-  }, [isActive, currentStep, steps]);
+  }, [isActive, currentStep, steps, nextStep, skipTutorial]);
 
-  // Check scroll state
+  // Reset scroll et check scroll state à chaque changement d'étape
   useEffect(() => {
+    // Reset scroll position au changement d'étape
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+
     const checkScroll = () => {
       if (contentRef.current) {
         const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
@@ -96,12 +123,19 @@ export const TutorialTooltip: React.FC = () => {
       }
     };
 
-    checkScroll();
+    // Petit délai pour laisser le contenu se charger
+    const timer = setTimeout(checkScroll, 100);
+
     const content = contentRef.current;
     if (content) {
       content.addEventListener("scroll", checkScroll);
-      return () => content.removeEventListener("scroll", checkScroll);
+      return () => {
+        clearTimeout(timer);
+        content.removeEventListener("scroll", checkScroll);
+      };
     }
+
+    return () => clearTimeout(timer);
   }, [isVisible, currentStep]);
 
   const scrollContent = (direction: "up" | "down") => {
@@ -146,7 +180,12 @@ export const TutorialTooltip: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={skipTutorial}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              skipTutorial();
+            }}
             className="p-1 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
             aria-label="Fermer le tutoriel"
           >
@@ -159,7 +198,12 @@ export const TutorialTooltip: React.FC = () => {
           {canScrollUp && (
             <div className="absolute top-0 left-0 right-0 flex justify-center pt-2 z-10 bg-gradient-to-b from-white to-transparent">
               <button
-                onClick={() => scrollContent("up")}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  scrollContent("up");
+                }}
                 className="p-1 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors"
                 aria-label="Défiler vers le haut"
               >
@@ -179,12 +223,29 @@ export const TutorialTooltip: React.FC = () => {
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
               {step.content}
             </p>
+
+            {/* Message de fin sur la dernière étape */}
+            {currentStep === steps.length - 1 && (
+              <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2 text-xs text-blue-800">
+                  <HelpCircle size={14} className="flex-shrink-0 mt-0.5" />
+                  <span>
+                    Vous pouvez relancer ce tutoriel à tout moment en cliquant sur le <strong>?</strong> dans le header.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {canScrollDown && (
             <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-2 z-10 bg-gradient-to-t from-white to-transparent">
               <button
-                onClick={() => scrollContent("down")}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  scrollContent("down");
+                }}
                 className="p-1 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors"
                 aria-label="Défiler vers le bas"
               >
@@ -197,7 +258,12 @@ export const TutorialTooltip: React.FC = () => {
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-gray-200">
           <button
-            onClick={prevStep}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              prevStep();
+            }}
             disabled={currentStep === 0}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 active:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -217,7 +283,12 @@ export const TutorialTooltip: React.FC = () => {
           </div>
 
           <button
-            onClick={nextStep}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              nextStep();
+            }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover active:scale-95 transition-all"
           >
             {currentStep === steps.length - 1 ? "Terminer" : "Suivant"}

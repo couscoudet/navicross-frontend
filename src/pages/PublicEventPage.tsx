@@ -270,6 +270,21 @@ export const PublicEventPage: React.FC = () => {
           currentPosition={currentPosition}
           navigating={navigating}
           routeProgress={routeProgress}
+          onOriginSelect={(coords) => {
+            setOrigin(coords);
+            // Réinitialiser la destination si on resélectionne l'origine
+            if (destination) {
+              setDestination(null);
+              setRoute(null);
+            }
+          }}
+          onDestinationSelect={(coords) => {
+            setDestination(coords);
+            // Calculer automatiquement l'itinéraire
+            if (origin) {
+              handleCalculateRoute(origin, coords);
+            }
+          }}
         />
 
         {/* Navigation Panel - compact mobile */}

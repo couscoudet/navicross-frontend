@@ -29,25 +29,37 @@ export const Header: React.FC<HeaderProps> = ({ currentPage }) => {
   const handleStartTutorial = async () => {
     setMobileMenuOpen(false);
 
+    // Déclencher un événement pour fermer les modales
+    window.dispatchEvent(new CustomEvent("close-modals"));
+
+    // Attendre un peu pour que les modales se ferment
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Importer le tutoriel approprié selon la page
     let tutorialSteps;
+    let tutorialId;
+
     if (location.pathname === "/") {
       const { homeTutorialSteps } = await import("@/config/tutorials");
       tutorialSteps = homeTutorialSteps;
+      tutorialId = "home";
     } else if (location.pathname === "/admin") {
       const { adminTutorialSteps } = await import("@/config/tutorials");
       tutorialSteps = adminTutorialSteps;
+      tutorialId = "admin";
     } else if (location.pathname.includes("/admin/events/")) {
       const { eventDetailTutorialSteps } = await import("@/config/tutorials");
       tutorialSteps = eventDetailTutorialSteps;
+      tutorialId = "event-detail";
     } else if (location.pathname.includes("/events/")) {
       const { publicEventTutorialSteps } = await import("@/config/tutorials");
       tutorialSteps = publicEventTutorialSteps;
+      tutorialId = "public-event";
     }
 
-    if (tutorialSteps) {
+    if (tutorialSteps && tutorialId) {
       setSteps(tutorialSteps);
-      startTutorial("page");
+      startTutorial(tutorialId);
     }
   };
 

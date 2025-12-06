@@ -7,6 +7,7 @@ export interface TutorialStep {
   content: string;
   placement?: "top" | "bottom" | "left" | "right";
   page?: string; // Page où ce step doit apparaître
+  action?: () => void; // Action à déclencher automatiquement pour cette étape
 }
 
 interface TutorialContextType {
@@ -54,6 +55,10 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   };
 
   const autoStartTutorial = (tutorialId: string, tutorialSteps: TutorialStep[]) => {
+    // Ne pas redémarrer si le tutoriel est déjà actif
+    if (isActive) return;
+
+    // Ne démarrer que si le tutoriel n'a jamais été complété
     if (!hasCompletedTutorial(tutorialId)) {
       setSteps(tutorialSteps);
       setCurrentTutorialId(tutorialId);

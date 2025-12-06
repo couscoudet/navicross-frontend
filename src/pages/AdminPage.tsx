@@ -34,10 +34,37 @@ export const AdminPage: React.FC = () => {
   // Tutorial
   const { autoStartTutorial } = useTutorial();
 
+  // Écouter l'événement de fermeture des modales
+  useEffect(() => {
+    const handleCloseModals = () => {
+      setIsCreateModalOpen(false);
+      setEditingEvent(null);
+    };
+
+    window.addEventListener("close-modals", handleCloseModals);
+    return () => window.removeEventListener("close-modals", handleCloseModals);
+  }, []);
+
   // Auto-démarrer le tutoriel à la première visite
   useEffect(() => {
-    autoStartTutorial("admin", adminTutorialSteps);
-  }, [autoStartTutorial]);
+    // Ajouter une action pour fermer les modales au début du tutoriel
+    const stepsWithActions = adminTutorialSteps.map((step, index) => {
+      if (index === 0) {
+        // Première étape : fermer toutes les modales
+        return {
+          ...step,
+          action: () => {
+            setIsCreateModalOpen(false);
+            setEditingEvent(null);
+          }
+        };
+      }
+      return step;
+    });
+
+    autoStartTutorial("admin", stepsWithActions);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filtrage et recherche
   const filteredEvents = useMemo(() => {
@@ -155,7 +182,7 @@ export const AdminPage: React.FC = () => {
 
         {/* Liste des événements */}
         {!isLoading && !error && (
-          <>
+          <div data-tutorial="events-list">
             {/* Compteur */}
             <div className="mb-4 text-sm text-gray-600">
               {filteredEvents.length} événement
@@ -169,7 +196,7 @@ export const AdminPage: React.FC = () => {
               onDelete={handleDelete}
               onTogglePublish={handleTogglePublish}
             />
-          </>
+          </div>
         )}
       </main>
 

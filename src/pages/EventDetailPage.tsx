@@ -60,12 +60,55 @@ export const EventDetailPage: React.FC = () => {
   // Tutorial
   const { autoStartTutorial } = useTutorial();
 
+  // Écouter l'événement de fermeture des modales
+  useEffect(() => {
+    const handleCloseModals = () => {
+      setShowModal(false);
+      setShowPanel(false);
+      setEditingClosure(null);
+      setSelectedType(undefined);
+    };
+
+    window.addEventListener("close-modals", handleCloseModals);
+    return () => window.removeEventListener("close-modals", handleCloseModals);
+  }, []);
+
   // Auto-démarrer le tutoriel à la première visite
   useEffect(() => {
     if (event) {
-      autoStartTutorial("event-detail", eventDetailTutorialSteps);
+      // Ajouter les actions automatiques aux étapes du tutoriel
+      const stepsWithActions = eventDetailTutorialSteps.map((step, index) => {
+        // Première étape : fermer toutes les modales
+        if (index === 0) {
+          return {
+            ...step,
+            action: () => {
+              setShowModal(false);
+              setShowPanel(false);
+              setEditingClosure(null);
+              setSelectedType(undefined);
+            }
+          };
+        }
+
+        // Ouvrir automatiquement le panneau pour les étapes qui en ont besoin
+        if (step.id === "event-closures-btn" || step.id === "event-barrier" ||
+            step.id === "event-segment" || step.id === "event-zone" ||
+            step.id === "event-closures-list") {
+          return {
+            ...step,
+            action: () => {
+              setShowPanel(true);
+            }
+          };
+        }
+        return step;
+      });
+
+      autoStartTutorial("event-detail", stepsWithActions);
     }
-  }, [event, autoStartTutorial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event]);
 
   const handleMapReady = (mapInstance: maplibregl.Map) => {
     mapInstanceRef.current = mapInstance;
