@@ -18,13 +18,20 @@ const setSessionCookie = (sessionId: string) => {
   // Définir un cookie qui expire dans 7 jours
   const expires = new Date();
   expires.setDate(expires.getDate() + 7);
-  document.cookie = `session_id=${sessionId}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+
+  // En production/cross-domain, il faut SameSite=None avec Secure
+  const isProduction = import.meta.env.PROD;
+  const sameSite = isProduction ? 'None; Secure' : 'Lax';
+
+  document.cookie = `session_id=${sessionId}; expires=${expires.toUTCString()}; path=/; SameSite=${sameSite}`;
 };
 
 const clearSessionCookie = () => {
   // Supprimer le cookie en définissant une date d'expiration passée
-  document.cookie =
-    "session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+  const isProduction = import.meta.env.PROD;
+  const sameSite = isProduction ? 'None; Secure' : 'Lax';
+
+  document.cookie = `session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=${sameSite}`;
 };
 
 // Helper pour le localStorage (user info uniquement)
