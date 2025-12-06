@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { PublicMap } from "@/components/public/PublicMap";
 import { RouteForm } from "@/components/public/RouteForm";
 import { RouteInfo } from "@/components/public/RouteInfo";
+import { NavigationPanel } from "@/components/public/NavigationPanel";
+import { useGeolocation } from "@/hooks/useGeolocation";
 import { api } from "@/services/api";
 import type { Event, Closure } from "@/types";
 
@@ -32,6 +34,13 @@ export const PublicEventPage: React.FC = () => {
   const [destination, setDestination] = useState<Coordinates | null>(null);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState<Coordinates | null>(
+    null
+  );
+
+  const { position, watchPosition, clearWatch } = useGeolocation();
+  const watchIdRef = useRef<number | null>(null);
 
   const { data: event } = useQuery<Event>({
     queryKey: ["event", slug],
@@ -100,6 +109,87 @@ export const PublicEventPage: React.FC = () => {
     }
   };
 
+  const handleStartNavigation = () => {
+    console.log("handleStartNavigation called", { origin, destination });
+
+    if (!origin || !destination) {
+      console.error("Missing origin or destination!");
+      return;
+    }
+
+    console.log("Starting navigation...");
+    setNavigating(true);
+
+    // Définir position initiale
+    setCurrentPosition(origin);
+
+    // Fallback : si pas de GPS après 3s, rester sur origin
+    const fallbackTimeout = setTimeout(() => {
+      console.warn("GPS timeout, using origin as position");
+      setCurrentPosition(origin);
+    }, 3000);
+
+    // Démarrer le suivi GPS
+    const id = watchPosition((pos) => {
+      clearTimeout(fallbackTimeout);
+      console.log("GPS position received:", pos);
+      const currentPos = { lng: pos.lng, lat: pos.lat };
+
+      // Mettre à jour la position actuelle
+      setCurrentPosition(currentPos);
+      console.log("Current position set:", currentPos);
+
+      // Recalculer si déviation > 50m
+      if (origin) {
+        const distance = calculateDistance(currentPos, origin);
+        if (distance > 0.05) {
+          // 50 mètres en km
+          handleCalculateRoute(currentPos, destination!);
+        }
+      }
+    });
+
+    console.log("Watch ID:", id);
+    watchIdRef.current = id;
+  };
+
+  const handleStopNavigation = () => {
+    setNavigating(false);
+    setCurrentPosition(null);
+    if (watchIdRef.current !== null) {
+      clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  };
+
+  // Cleanup au démontage
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        clearWatch(watchIdRef.current);
+      }
+    };
+  }, [clearWatch]);
+
+  // Calcul distance haversine
+  const calculateDistance = (pos1: Coordinates, pos2: Coordinates): number => {
+    const R = 6371; // Rayon terre en km
+    const dLat = toRad(pos2.lat - pos1.lat);
+    const dLng = toRad(pos2.lng - pos1.lng);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(pos1.lat)) *
+        Math.cos(toRad(pos2.lat)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+
   const handleReset = () => {
     setOrigin(null);
     setDestination(null);
@@ -159,23 +249,55 @@ export const PublicEventPage: React.FC = () => {
           route={route?.geometry}
           origin={origin}
           destination={destination}
+          currentPosition={currentPosition}
+          navigating={navigating}
         />
 
-        {/* Route Info Overlay */}
-        {route && (
-          <div className="absolute top-4 left-4 right-4 md:left-auto md:w-80">
+        {/* Navigation Panel - compact mobile */}
+        {navigating && route && destination && currentPosition && (
+          <div className="absolute top-2 left-2 right-2 md:top-4 md:left-4 md:right-auto md:w-96">
+            <NavigationPanel
+              currentPosition={currentPosition}
+              destination={destination}
+              totalDistance={route.distance}
+              totalDuration={route.duration}
+              onStop={handleStopNavigation}
+            />
+          </div>
+        )}
+
+        {/* Route Info Overlay - compact mobile */}
+        {route && !navigating && (
+          <div className="absolute top-2 left-2 right-2 md:top-4 md:left-4 md:right-auto md:w-80">
             <RouteInfo
               distance={route.distance}
               duration={route.duration}
               closuresCount={activeClosures.length}
             />
+            <button
+              onClick={() => {
+                console.log("Button clicked!", { origin, destination });
+                handleStartNavigation();
+              }}
+              className="mt-2 w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
+            >
+              Démarrer la navigation
+            </button>
           </div>
         )}
       </div>
 
-      {/* Form */}
-      <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
-        <RouteForm onCalculate={handleCalculateRoute} loading={calculating} />
+      {/* Form - masqué en navigation sur mobile */}
+      <div
+        className={`bg-white border-t border-gray-200 p-4 flex-shrink-0 ${
+          navigating ? "hidden md:block" : ""
+        }`}
+      >
+        <RouteForm
+          onCalculate={handleCalculateRoute}
+          onOriginChange={setOrigin}
+          loading={calculating}
+        />
         {activeClosures.length === 0 && (
           <p className="text-sm text-gray-500 mt-2 text-center">
             Aucune fermeture active pour le moment

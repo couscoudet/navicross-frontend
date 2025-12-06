@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
-import { Search, Navigation, ArrowRight } from "lucide-react";
+import { Search, Navigation, ArrowRight, Locate } from "lucide-react";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 interface Coordinates {
   lng: number;
@@ -8,6 +9,7 @@ interface Coordinates {
 
 interface RouteFormProps {
   onCalculate: (origin: Coordinates, destination: Coordinates) => void;
+  onOriginChange?: (origin: Coordinates | null) => void;
   loading: boolean;
 }
 
@@ -19,6 +21,7 @@ interface Suggestion {
 
 export const RouteForm: React.FC<RouteFormProps> = ({
   onCalculate,
+  onOriginChange,
   loading,
 }) => {
   const [originQuery, setOriginQuery] = useState("");
@@ -32,8 +35,29 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   );
   const [selectedDest, setSelectedDest] = useState<Coordinates | null>(null);
 
+  const { getCurrentPosition, loading: geoLoading } = useGeolocation();
+
   const originDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const destDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      const pos = await getCurrentPosition();
+      if (pos) {
+        const coords = { lng: pos.lng, lat: pos.lat };
+        setSelectedOrigin(coords);
+        setOriginQuery("📍 Ma position");
+        onOriginChange?.(coords);
+      } else {
+        alert(
+          "Impossible d'obtenir votre position. Vérifiez les autorisations de localisation."
+        );
+      }
+    } catch (error) {
+      console.error("Geolocation error:", error);
+      alert("Erreur de géolocalisation. Sur mobile, HTTPS est requis.");
+    }
+  };
 
   const searchAddress = async (
     query: string,
@@ -46,14 +70,22 @@ export const RouteForm: React.FC<RouteFormProps> = ({
 
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        `${import.meta.env.VITE_API_URL}/geocode/search?q=${encodeURIComponent(
           query
-        )}&limit=5&countrycodes=fr`
+        )}&limit=5`
       );
+
+      if (!response.ok) {
+        console.error("Geocoding failed:", response.status);
+        setSuggestions([]);
+        return;
+      }
+
       const data = await response.json();
       setSuggestions(data);
     } catch (error) {
       console.error("Geocoding error:", error);
+      setSuggestions([]);
     }
   };
 
@@ -126,20 +158,35 @@ export const RouteForm: React.FC<RouteFormProps> = ({
         <label className="block text-xs font-medium text-gray-600 mb-1">
           Départ
         </label>
-        <div className="relative">
-          <input
-            type="text"
-            value={originQuery}
-            onChange={(e) => handleOriginChange(e.target.value)}
-            onFocus={() => setShowOriginSuggestions(true)}
-            placeholder="Gare de Nevers..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
-            disabled={loading}
-          />
-          <Navigation
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={originQuery}
+              onChange={(e) => handleOriginChange(e.target.value)}
+              onFocus={() => setShowOriginSuggestions(true)}
+              placeholder="Gare de Nevers..."
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
+              disabled={loading}
+            />
+            <Navigation
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleUseCurrentLocation}
+            disabled={loading || geoLoading}
+            className="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            title="Utiliser ma position"
+          >
+            {geoLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Locate size={16} />
+            )}
+          </button>
         </div>
 
         {showOriginSuggestions && originSuggestions.length > 0 && (

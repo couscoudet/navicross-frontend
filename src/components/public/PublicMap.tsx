@@ -191,53 +191,165 @@ export const PublicMap: React.FC<PublicMapProps> = ({
 
     if (origin) {
       const el = document.createElement("div");
-      el.className =
-        "w-8 h-8 bg-green-500 rounded-full border-4 border-white shadow-lg";
-      originMarkerRef.current = new maplibregl.Marker({ element: el })
+      el.style.width = "12px";
+      el.style.height = "12px";
+      el.style.borderRadius = "50%";
+      el.style.backgroundColor = "#22c55e";
+      el.style.border = "2px solid white";
+      el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+      el.style.transform = "translate(-50%, -50%)";
+
+      originMarkerRef.current = new maplibregl.Marker({
+        element: el,
+      })
         .setLngLat([origin.lng, origin.lat])
         .addTo(map.current);
     }
 
     if (destination) {
       const el = document.createElement("div");
-      el.className =
-        "w-8 h-8 bg-red-500 rounded-full border-4 border-white shadow-lg";
-      destMarkerRef.current = new maplibregl.Marker({ element: el })
+      el.style.width = "12px";
+      el.style.height = "12px";
+      el.style.borderRadius = "50%";
+      el.style.backgroundColor = "#ef4444";
+      el.style.border = "2px solid white";
+      el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+      el.style.transform = "translate(-50%, -50%)";
+
+      destMarkerRef.current = new maplibregl.Marker({
+        element: el,
+      })
         .setLngLat([destination.lng, destination.lat])
         .addTo(map.current);
     }
   }, [origin, destination]);
 
-  // Marker position actuelle (navigation)
+  // Centrer sur origine quand définie (géolocalisation)
   useEffect(() => {
-    if (!map.current || !navigating) {
+    if (!map.current || !mapLoaded || !origin || navigating) return;
+
+    map.current.flyTo({
+      center: [origin.lng, origin.lat],
+      zoom: 14,
+      duration: 1000,
+    });
+  }, [origin, mapLoaded, navigating]);
+
+  // Marker position actuelle (navigation) avec orientation
+  useEffect(() => {
+    console.log("Navigation effect:", {
+      navigating,
+      currentPosition,
+      hasRoute: !!route,
+    });
+
+    if (!map.current) return;
+
+    if (!navigating) {
       currentPosMarkerRef.current?.remove();
+      // Réinitialiser la caméra
+      if (mapLoaded) {
+        map.current.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 800,
+        });
+      }
       return;
     }
 
-    if (currentPosition) {
+    if (currentPosition && route) {
+      console.log("Updating navigation:", currentPosition);
+
+      // Calculer le bearing (direction) vers le prochain point de la route
+      const routeCoords = route.coordinates;
+      const bearing = calculateBearing(currentPosition, routeCoords);
+
+      console.log("Bearing:", bearing);
+
       if (currentPosMarkerRef.current) {
+        // Update position et rotation
         currentPosMarkerRef.current.setLngLat([
           currentPosition.lng,
           currentPosition.lat,
         ]);
+        const el = currentPosMarkerRef.current.getElement();
+        el.style.transform = `rotate(${bearing}deg)`;
       } else {
+        // Créer marker avec flèche directionnelle
         const el = document.createElement("div");
-        el.className =
-          "w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-lg animate-pulse";
-        currentPosMarkerRef.current = new maplibregl.Marker({ element: el })
+        el.innerHTML = `
+          <div class="relative">
+            <div class="absolute inset-0 w-10 h-10 bg-blue-500 rounded-full opacity-30 animate-ping"></div>
+            <div class="relative w-10 h-10 bg-blue-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2L12 22M12 2L6 8M12 2L18 8"/>
+              </svg>
+            </div>
+          </div>
+        `;
+        el.style.transform = `rotate(${bearing}deg)`;
+        el.style.transformOrigin = "center";
+
+        currentPosMarkerRef.current = new maplibregl.Marker({
+          element: el,
+          rotationAlignment: "map",
+        })
           .setLngLat([currentPosition.lng, currentPosition.lat])
           .addTo(map.current);
       }
 
-      // Centrer la carte sur la position actuelle
-      map.current.flyTo({
+      // Caméra en mode navigation : zoom, pitch et bearing
+      map.current.easeTo({
         center: [currentPosition.lng, currentPosition.lat],
-        zoom: 16,
+        zoom: 17,
+        pitch: 60, // Inclinaison 3D
+        bearing: bearing, // Orientation dans le sens de la route
         duration: 1000,
+        essential: true,
       });
     }
-  }, [currentPosition, navigating]);
+  }, [currentPosition, navigating, route, mapLoaded]);
+
+  // Calculer le bearing entre position actuelle et prochain point de route
+  const calculateBearing = (
+    from: Coordinates,
+    routeCoords: number[][]
+  ): number => {
+    // Trouver le point le plus proche sur la route
+    let closestIndex = 0;
+    let minDist = Infinity;
+
+    routeCoords.forEach((coord, i) => {
+      const dist = Math.sqrt(
+        Math.pow(coord[0] - from.lng, 2) + Math.pow(coord[1] - from.lat, 2)
+      );
+      if (dist < minDist) {
+        minDist = dist;
+        closestIndex = i;
+      }
+    });
+
+    // Prendre le point suivant (ou le dernier si on est au bout)
+    const nextIndex = Math.min(closestIndex + 3, routeCoords.length - 1);
+    const to = {
+      lng: routeCoords[nextIndex][0],
+      lat: routeCoords[nextIndex][1],
+    };
+
+    // Formule bearing
+    const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+    const lat1 = (from.lat * Math.PI) / 180;
+    const lat2 = (to.lat * Math.PI) / 180;
+
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+    return (bearing + 360) % 360;
+  };
 
   return <div ref={mapContainer} className="absolute inset-0" />;
 };
