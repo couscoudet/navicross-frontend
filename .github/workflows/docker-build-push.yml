@@ -24,8 +24,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-      security-events: write  # For Trivy results upload
-      security-events: read   # For CodeQL Action API access
+      security-events: write  # For Trivy results upload (includes read access)
 
     steps:
       # Checkout repository
