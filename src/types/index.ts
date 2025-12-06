@@ -20,7 +20,7 @@ export interface LoginDto {
 
 export interface AuthResponse {
   user: User;
-  sessionId: string;
+  // sessionId n'est plus retourné - le cookie est géré par le serveur via Set-Cookie
 }
 
 // Event types

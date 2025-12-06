@@ -13,28 +13,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper pour le cookie session_id
-const setSessionCookie = (sessionId: string) => {
-  // Définir un cookie qui expire dans 7 jours
-  const expires = new Date();
-  expires.setDate(expires.getDate() + 7);
-
-  // En production/cross-domain, il faut SameSite=None avec Secure
-  const isProduction = import.meta.env.PROD;
-  const sameSite = isProduction ? 'None; Secure' : 'Lax';
-
-  document.cookie = `session_id=${sessionId}; expires=${expires.toUTCString()}; path=/; SameSite=${sameSite}`;
-};
-
-const clearSessionCookie = () => {
-  // Supprimer le cookie en définissant une date d'expiration passée
-  const isProduction = import.meta.env.PROD;
-  const sameSite = isProduction ? 'None; Secure' : 'Lax';
-
-  document.cookie = `session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=${sameSite}`;
-};
-
 // Helper pour le localStorage (user info uniquement)
+// Le cookie session_id est maintenant géré par le serveur via Set-Cookie
 const USER_STORAGE_KEY = "navicross_user";
 
 const getStoredUser = (): User | null => {
@@ -74,8 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await api.auth.register(data);
       setUser(response.user);
       setStoredUser(response.user);
-      // Définir le cookie session_id
-      setSessionCookie(response.sessionId);
+      // Le cookie session_id est défini automatiquement par le serveur via Set-Cookie
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -86,8 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await api.auth.login(data);
       setUser(response.user);
       setStoredUser(response.user);
-      // Définir le cookie session_id
-      setSessionCookie(response.sessionId);
+      // Le cookie session_id est défini automatiquement par le serveur via Set-Cookie
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -101,8 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setUser(null);
       setStoredUser(null);
-      // Supprimer le cookie session_id
-      clearSessionCookie();
+      // Le cookie session_id est supprimé automatiquement par le serveur
     }
   };
 
