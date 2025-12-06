@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ClosureCard } from "./ClosureCard";
 import { Button } from "@/components/ui/Button";
-import { Plus, MapPin, Route, Map as MapIcon } from "lucide-react";
+import { MapPin, Route, Map as MapIcon } from "lucide-react";
 import type { Closure } from "@/types";
 
 interface ClosureListProps {

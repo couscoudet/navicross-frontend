@@ -66,14 +66,6 @@ export const HomePage: React.FC = () => {
     );
   }, [events, searchQuery, startDate, endDate]);
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
   const hasActiveFilters = searchQuery || startDate || endDate;
 
   const clearFilters = () => {

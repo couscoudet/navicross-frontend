@@ -6,12 +6,6 @@ interface Coordinates {
   lat: number;
 }
 
-interface RouteResult {
-  route: GeoJSON.LineString;
-  distance: number;
-  duration: number;
-}
-
 interface NavigationPanelProps {
   currentPosition: Coordinates | null;
   destination: Coordinates;

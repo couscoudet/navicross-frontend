@@ -59,7 +59,7 @@ export const EventDetailPage: React.FC = () => {
     mapInstanceRef.current = mapInstance;
   };
 
-  const handleSelectAddress = (lat: number, lng: number, label: string) => {
+  const handleSelectAddress = (lat: number, lng: number) => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo({
         center: [lng, lat],
@@ -70,8 +70,7 @@ export const EventDetailPage: React.FC = () => {
   };
 
   const handleDrawCreate = (
-    geometry: GeoJSON.Geometry,
-    type: "barrier" | "segment" | "zone"
+    geometry: GeoJSON.Geometry
   ) => {
     setDrawingGeometry(geometry);
     setEditingClosure(null);

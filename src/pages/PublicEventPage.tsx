@@ -39,7 +39,7 @@ export const PublicEventPage: React.FC = () => {
     null
   );
 
-  const { position, watchPosition, clearWatch } = useGeolocation();
+  const { watchPosition, clearWatch } = useGeolocation();
   const watchIdRef = useRef<number | null>(null);
 
   const { data: event } = useQuery<Event>({
@@ -189,12 +189,6 @@ export const PublicEventPage: React.FC = () => {
   };
 
   const toRad = (deg: number) => deg * (Math.PI / 180);
-
-  const handleReset = () => {
-    setOrigin(null);
-    setDestination(null);
-    setRoute(null);
-  };
 
   if (!event) {
     return (

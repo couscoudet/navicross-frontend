@@ -3,15 +3,21 @@
 # ============================================
 FROM node:20-alpine AS builder
 
+# Enable and activate pnpm via corepack
+# This ensures pnpm is available without manual installation
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Set working directory
 WORKDIR /app
 
 # Copy package files for dependency installation
-COPY package*.json ./
+# pnpm requires both package.json and pnpm-lock.yaml
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-# Using npm ci for clean, reproducible builds in CI/CD
-RUN npm ci
+# Using --frozen-lockfile for clean, reproducible builds in CI/CD
+# This ensures exact versions from pnpm-lock.yaml are installed
+RUN pnpm install --frozen-lockfile
 
 # Copy source code and configuration files
 COPY . .
@@ -22,8 +28,8 @@ ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
 # Build the application
-# TypeScript compilation + Vite build
-RUN npm run build
+# TypeScript compilation + Vite build using pnpm
+RUN pnpm run build
 
 # ============================================
 # Stage 2: Serve with Nginx
