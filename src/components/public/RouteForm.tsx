@@ -148,7 +148,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4">
+    <form onSubmit={handleSubmit} className="p-4" data-tutorial="address-search">
       <h2 className="text-sm font-semibold text-gray-900 mb-3">
         Calculer un itinéraire
       </h2>

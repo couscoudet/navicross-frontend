@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTutorial } from "@/contexts/TutorialContext";
 import { Button } from "@/components/ui/Button";
-import { Navigation, LogOut, User, LayoutDashboard, Home, Menu, X } from "lucide-react";
+import { Navigation, LogOut, User, LayoutDashboard, Home, Menu, X, HelpCircle } from "lucide-react";
 
 interface HeaderProps {
   currentPage?: "home" | "admin";
@@ -10,7 +11,9 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ currentPage }) => {
   const { user, logout, isAuthenticated } = useAuth();
+  const { startTutorial, setSteps } = useTutorial();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -21,6 +24,31 @@ export const Header: React.FC<HeaderProps> = ({ currentPage }) => {
 
   const handleNavClick = () => {
     setMobileMenuOpen(false);
+  };
+
+  const handleStartTutorial = async () => {
+    setMobileMenuOpen(false);
+
+    // Importer le tutoriel approprié selon la page
+    let tutorialSteps;
+    if (location.pathname === "/") {
+      const { homeTutorialSteps } = await import("@/config/tutorials");
+      tutorialSteps = homeTutorialSteps;
+    } else if (location.pathname === "/admin") {
+      const { adminTutorialSteps } = await import("@/config/tutorials");
+      tutorialSteps = adminTutorialSteps;
+    } else if (location.pathname.includes("/admin/events/")) {
+      const { eventDetailTutorialSteps } = await import("@/config/tutorials");
+      tutorialSteps = eventDetailTutorialSteps;
+    } else if (location.pathname.includes("/events/")) {
+      const { publicEventTutorialSteps } = await import("@/config/tutorials");
+      tutorialSteps = publicEventTutorialSteps;
+    }
+
+    if (tutorialSteps) {
+      setSteps(tutorialSteps);
+      startTutorial("page");
+    }
   };
 
   return (
@@ -78,7 +106,17 @@ export const Header: React.FC<HeaderProps> = ({ currentPage }) => {
             </nav>
 
             {/* Desktop User Menu */}
-            <div className="hidden md:flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-3">
+              {/* Bouton aide */}
+              <button
+                onClick={handleStartTutorial}
+                className="p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                aria-label="Aide"
+                title="Afficher le tutoriel"
+              >
+                <HelpCircle size={20} />
+              </button>
+
               {isAuthenticated ? (
                 <>
                   <div className="flex items-center gap-2 text-gray-700">
@@ -202,7 +240,16 @@ export const Header: React.FC<HeaderProps> = ({ currentPage }) => {
           </nav>
 
           {/* Mobile Menu Footer */}
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200 space-y-2">
+            {/* Bouton aide */}
+            <button
+              onClick={handleStartTutorial}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-primary rounded-lg font-medium transition-colors"
+            >
+              <HelpCircle size={20} />
+              Afficher le tutoriel
+            </button>
+
             {isAuthenticated ? (
               <button
                 onClick={handleLogout}

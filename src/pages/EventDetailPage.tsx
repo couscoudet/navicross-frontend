@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import maplibregl from "maplibre-gl";
@@ -17,6 +17,8 @@ import { useClosures } from "@/hooks/useClosures";
 import { api } from "@/services/api";
 import { ClosureForm } from "@/components/closures/ClosureForm";
 import { Modal } from "@/components/ui/Modal";
+import { useTutorial } from "@/contexts/TutorialContext";
+import { eventDetailTutorialSteps } from "@/config/tutorials";
 import type {
   Event,
   Closure,
@@ -54,6 +56,16 @@ export const EventDetailPage: React.FC = () => {
     isCreating,
     isUpdating,
   } = useClosures(slug!);
+
+  // Tutorial
+  const { autoStartTutorial } = useTutorial();
+
+  // Auto-démarrer le tutoriel à la première visite
+  useEffect(() => {
+    if (event) {
+      autoStartTutorial("event-detail", eventDetailTutorialSteps);
+    }
+  }, [event, autoStartTutorial]);
 
   const handleMapReady = (mapInstance: maplibregl.Map) => {
     mapInstanceRef.current = mapInstance;
@@ -259,6 +271,7 @@ export const EventDetailPage: React.FC = () => {
               <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => handleStartDrawing("barrier")}
+                  data-tutorial="barrier-btn"
                   className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "barrier"
                       ? "bg-orange-50 border-orange-500 shadow-sm"
@@ -270,6 +283,7 @@ export const EventDetailPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleStartDrawing("segment")}
+                  data-tutorial="segment-btn"
                   className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "segment"
                       ? "bg-purple-50 border-purple-500 shadow-sm"
@@ -281,6 +295,7 @@ export const EventDetailPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleStartDrawing("zone")}
+                  data-tutorial="zone-btn"
                   className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "zone"
                       ? "bg-red-50 border-red-500 shadow-sm"
@@ -309,7 +324,7 @@ export const EventDetailPage: React.FC = () => {
             </div>
 
             {closures.length > 0 && (
-              <div className="border-t border-gray-200 px-4 pb-4 pt-3 overflow-y-auto flex-1">
+              <div className="border-t border-gray-200 px-4 pb-4 pt-3 overflow-y-auto flex-1" data-tutorial="closures-list">
                 <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Liste ({closures.length})
                 </div>
@@ -359,6 +374,7 @@ export const EventDetailPage: React.FC = () => {
           <div className="absolute top-4 left-4 flex flex-col gap-2">
             <button
               onClick={() => setShowPanel(true)}
+              data-tutorial="closures-btn"
               className={`text-white px-4 py-2.5 rounded-full shadow-xl active:scale-95 transition-all flex items-center gap-2 text-sm font-medium ${
                 selectedType
                   ? selectedType === "barrier"

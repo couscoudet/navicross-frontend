@@ -9,6 +9,8 @@ import { NavigationPanel } from "@/components/public/NavigationPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useRouteProgress } from "@/hooks/useRouteProgress";
 import { usePositionInterpolation, easingFunctions } from "@/hooks/usePositionInterpolation";
+import { useTutorial } from "@/contexts/TutorialContext";
+import { publicEventTutorialSteps } from "@/config/tutorials";
 import { api } from "@/services/api";
 import type { Event, Closure } from "@/types";
 
@@ -65,6 +67,16 @@ export const PublicEventPage: React.FC = () => {
     queryFn: () => api.closures.getByEvent(slug!),
     enabled: !!slug,
   });
+
+  // Tutorial
+  const { autoStartTutorial } = useTutorial();
+
+  // Auto-démarrer le tutoriel à la première visite
+  useEffect(() => {
+    if (event) {
+      autoStartTutorial("public-event", publicEventTutorialSteps);
+    }
+  }, [event, autoStartTutorial]);
 
   const handleCalculateRoute = async (orig: Coordinates, dest: Coordinates) => {
     if (!event) return;

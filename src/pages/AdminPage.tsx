@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +13,8 @@ import {
   useDeleteEvent,
   useTogglePublishEvent,
 } from "@/hooks/useEvents";
+import { useTutorial } from "@/contexts/TutorialContext";
+import { adminTutorialSteps } from "@/config/tutorials";
 import type { Event, CreateEventDto, UpdateEventDto } from "@/types";
 
 export const AdminPage: React.FC = () => {
@@ -28,6 +30,14 @@ export const AdminPage: React.FC = () => {
   const updateMutation = useUpdateEvent();
   const deleteMutation = useDeleteEvent();
   const togglePublishMutation = useTogglePublishEvent();
+
+  // Tutorial
+  const { autoStartTutorial } = useTutorial();
+
+  // Auto-démarrer le tutoriel à la première visite
+  useEffect(() => {
+    autoStartTutorial("admin", adminTutorialSteps);
+  }, [autoStartTutorial]);
 
   // Filtrage et recherche
   const filteredEvents = useMemo(() => {
@@ -121,6 +131,7 @@ export const AdminPage: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => setIsCreateModalOpen(true)}
+              data-tutorial="create-event-btn"
             >
               <Plus size={20} />
               Créer un événement

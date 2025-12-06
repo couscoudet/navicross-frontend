@@ -1,16 +1,19 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Navigation, Lock, Search, X } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTutorial } from "@/contexts/TutorialContext";
+import { homeTutorialSteps } from "@/config/tutorials";
 import { fuzzySearch } from "@/utils/search-utils";
 import type { Event } from "@/types";
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { autoStartTutorial } = useTutorial();
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -19,6 +22,11 @@ export const HomePage: React.FC = () => {
     queryKey: ["events"],
     queryFn: api.events.getAll,
   });
+
+  // Auto-démarrer le tutoriel à la première visite
+  useEffect(() => {
+    autoStartTutorial("home", homeTutorialSteps);
+  }, [autoStartTutorial]);
 
   // Filtrer et rechercher
   const filteredEvents = useMemo(() => {
@@ -99,6 +107,7 @@ export const HomePage: React.FC = () => {
           {!isAuthenticated && (
             <button
               onClick={() => navigate("/login")}
+              data-tutorial="admin-access"
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
             >
               <Lock size={16} />
@@ -108,67 +117,68 @@ export const HomePage: React.FC = () => {
         </div>
 
         {/* Filtres */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="grid md:grid-cols-3 gap-4">
-            {/* Recherche par nom */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Rechercher un événement
-              </label>
-              <div className="relative">
-                <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
+        <div data-tutorial="events-list">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <div className="grid md:grid-cols-3 gap-4">
+              {/* Recherche par nom */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rechercher un événement
+                </label>
+                <div className="relative">
+                  <Search
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={18}
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Nom de l'événement..."
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Date début */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  À partir du
+                </label>
                 <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Nom de l'événement..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              {/* Date fin */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Jusqu'au
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
 
-            {/* Date début */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                À partir du
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-
-            {/* Date fin */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Jusqu'au
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
+            {/* Bouton clear filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-3 flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <X size={16} />
+                Réinitialiser les filtres
+              </button>
+            )}
           </div>
-
-          {/* Bouton clear filters */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="mt-3 flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              <X size={16} />
-              Réinitialiser les filtres
-            </button>
-          )}
         </div>
-
         {/* Info filtrage par défaut */}
         {!hasActiveFilters && (
           <p className="text-sm text-gray-600 mb-4">
