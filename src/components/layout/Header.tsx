@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage }) => {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 shadow-sm">
+    <header className="bg-white border-b border-gray-200 shadow-sm mb-6">
       <div className="container-custom">
         <div className="flex items-center justify-between h-16">
           {/* Logo et navigation */}

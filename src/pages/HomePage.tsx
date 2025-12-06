@@ -1,20 +1,70 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Navigation, Lock } from "lucide-react";
+import { Calendar, Navigation, Lock, Search, X } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { fuzzySearch } from "@/utils/search-utils";
 import type { Event } from "@/types";
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["events"],
     queryFn: api.events.getAll,
   });
+
+  // Filtrer et rechercher
+  const filteredEvents = useMemo(() => {
+    let filtered = [...events];
+
+    // Par défaut: événements du jour et des 10 prochains jours
+    if (!startDate && !endDate && !searchQuery) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const in10Days = new Date(today);
+      in10Days.setDate(in10Days.getDate() + 10);
+
+      filtered = filtered.filter((event) => {
+        const eventDate = new Date(event.event_date);
+        return eventDate >= today && eventDate <= in10Days;
+      });
+    }
+
+    // Recherche par nom (fuzzy)
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (event) =>
+          fuzzySearch(searchQuery, event.name, 0.5) ||
+          (event.description &&
+            fuzzySearch(searchQuery, event.description, 0.5))
+      );
+    }
+
+    // Filtrage par dates
+    if (startDate) {
+      const start = new Date(startDate);
+      filtered = filtered.filter(
+        (event) => new Date(event.event_date) >= start
+      );
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      filtered = filtered.filter((event) => new Date(event.event_date) <= end);
+    }
+
+    // Trier par date
+    return filtered.sort(
+      (a, b) =>
+        new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
+    );
+  }, [events, searchQuery, startDate, endDate]);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("fr-FR", {
@@ -22,6 +72,14 @@ export const HomePage: React.FC = () => {
       month: "long",
       year: "numeric",
     });
+  };
+
+  const hasActiveFilters = searchQuery || startDate || endDate;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStartDate("");
+    setEndDate("");
   };
 
   if (isLoading) {
@@ -57,14 +115,83 @@ export const HomePage: React.FC = () => {
           )}
         </div>
 
+        {/* Filtres */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* Recherche par nom */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Rechercher un événement
+              </label>
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Nom de l'événement..."
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Date début */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                À partir du
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            {/* Date fin */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Jusqu'au
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Bouton clear filters */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="mt-3 flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+            >
+              <X size={16} />
+              Réinitialiser les filtres
+            </button>
+          )}
+        </div>
+
+        {/* Info filtrage par défaut */}
+        {!hasActiveFilters && (
+          <p className="text-sm text-gray-600 mb-4">
+            📅 Affichage des événements du jour et des 10 prochains jours
+          </p>
+        )}
+
         {/* Liste des événements */}
-        {events.length > 0 ? (
+        {filteredEvents.length > 0 ? (
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              📅 Événements ({events.length})
+              Événements ({filteredEvents.length})
             </h2>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {events.map((event) => (
+              {filteredEvents.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
@@ -73,11 +200,21 @@ export const HomePage: React.FC = () => {
           <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
             <Calendar size={48} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Aucun événement
+              {hasActiveFilters ? "Aucun résultat" : "Aucun événement"}
             </h3>
             <p className="text-gray-600">
-              Aucun événement n'est disponible pour le moment.
+              {hasActiveFilters
+                ? "Aucun événement ne correspond à vos critères de recherche."
+                : "Aucun événement n'est disponible pour les 10 prochains jours."}
             </p>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+              >
+                Voir tous les événements
+              </button>
+            )}
           </div>
         )}
       </main>
