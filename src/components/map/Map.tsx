@@ -150,16 +150,33 @@ export const Map: React.FC<MapProps> = ({
 
     const geojson: GeoJSON.FeatureCollection = {
       type: "FeatureCollection",
-      features: closures.map((closure) => ({
-        type: "Feature",
-        id: closure.id,
-        properties: {
-          id: closure.id,
-          name: closure.name,
-          type: closure.type,
-        },
-        geometry: closure.polygon, // Utiliser polygon au lieu de geometry
-      })),
+      features: closures
+        .filter((closure) => {
+          // Valider le polygon
+          try {
+            const coords = closure.polygon?.coordinates;
+            if (!coords || !Array.isArray(coords)) return false;
+            // Vérifier qu'il n'y a pas de NaN ou Infinity
+            const hasInvalidCoords = coords[0]?.some(
+              (point: number[]) =>
+                !Array.isArray(point) || point.some((n) => !Number.isFinite(n))
+            );
+            return !hasInvalidCoords;
+          } catch (e) {
+            console.error("Invalid closure polygon:", closure.id, e);
+            return false;
+          }
+        })
+        .map((closure) => ({
+          type: "Feature",
+          id: Number(closure.id), // Convertir en number
+          properties: {
+            id: Number(closure.id), // Convertir en number
+            name: String(closure.name || ""),
+            type: String(closure.type),
+          },
+          geometry: closure.polygon, // Utiliser polygon au lieu de geometry
+        })),
     };
 
     map.current.addSource("closures", {
@@ -222,8 +239,8 @@ export const Map: React.FC<MapProps> = ({
       (layerId) => {
         map.current!.on("click", layerId, (e) => {
           if (!e.features || e.features.length === 0) return;
-          const closureId = e.features[0].properties?.id;
-          const closure = closures.find((c) => c.id === closureId);
+          const closureId = Number(e.features[0].properties?.id);
+          const closure = closures.find((c) => Number(c.id) === closureId);
           if (closure) {
             onClosureClick(closure);
           }

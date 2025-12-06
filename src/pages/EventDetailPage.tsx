@@ -5,7 +5,14 @@ import maplibregl from "maplibre-gl";
 import { Map } from "@/components/map/Map";
 import { Button } from "@/components/ui/Button";
 import { AddressSearch } from "@/components/AddressSearch";
-import { ArrowLeft, MapPin, Route, Map as MapIcon, X } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  Route,
+  Map as MapIcon,
+  X,
+  FileSpreadsheet,
+} from "lucide-react";
 import { useClosures } from "@/hooks/useClosures";
 import { api } from "@/services/api";
 import { ClosureForm } from "@/components/closures/ClosureForm";
@@ -29,7 +36,9 @@ export const EventDetailPage: React.FC = () => {
   const [editingClosure, setEditingClosure] = useState<Closure | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
+  const [uploadingGpx, setUploadingGpx] = useState(false);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: event } = useQuery<Event>({
     queryKey: ["event", slug],
@@ -117,18 +126,69 @@ export const EventDetailPage: React.FC = () => {
     }
   };
 
+  const handleGpxUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".gpx")) {
+      alert("Seuls les fichiers .gpx sont acceptés");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setUploadingGpx(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/events/${slug}/closures/upload-gpx`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Import failed");
+      }
+
+      const result = await response.json();
+
+      if (result.errors && result.errors.length > 0) {
+        alert(
+          `✓ ${result.created} closure(s) créée(s)\n⚠️ ${result.errors.length} erreur(s)`
+        );
+      } else {
+        alert(`✓ ${result.created} closure(s) importée(s)`);
+      }
+
+      window.location.reload();
+    } catch (error) {
+      console.error("GPX upload error:", error);
+      alert(
+        error instanceof Error ? error.message : "Erreur lors de l'import GPX"
+      );
+    } finally {
+      setUploadingGpx(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (!event) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-[100dvh] flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
-        <div className="flex items-center gap-4">
+    <div className="h-[100dvh] flex flex-col bg-gray-50">
+      <header className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between z-10 flex-shrink-0">
+        <div className="flex items-center gap-3">
           <Button
             variant="secondary"
             size="sm"
@@ -137,32 +197,30 @@ export const EventDetailPage: React.FC = () => {
             <ArrowLeft size={16} />
           </Button>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-base font-semibold text-gray-900">
               {event.name}
             </h1>
             <p className="text-xs text-gray-500">
               {new Date(event.event_date).toLocaleDateString("fr-FR", {
                 day: "numeric",
-                month: "long",
-                year: "numeric",
+                month: "short",
               })}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-lg">
-          <div className="w-9 h-9 bg-red-100 rounded-full flex items-center justify-center">
-            <X size={18} className="text-red-600" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
+          <div className="w-7 h-7 bg-red-100 rounded-full flex items-center justify-center">
+            <X size={14} className="text-red-600" />
           </div>
           <div>
-            <div className="text-lg font-semibold text-gray-900">
+            <div className="text-base font-semibold text-gray-900">
               {closures.length}
             </div>
-            <div className="text-xs text-gray-500">Closures</div>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden">
         <div className="absolute inset-0">
           <Map
             closures={closures}
@@ -174,11 +232,11 @@ export const EventDetailPage: React.FC = () => {
         </div>
 
         {showPanel && (
-          <div className="absolute top-5 left-5 w-96 bg-white rounded-2xl shadow-2xl">
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
+          <div className="absolute inset-x-4 top-4 bg-white rounded-2xl shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 flex-shrink-0">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-900">
-                  Ajouter une closure
+                  Closures
                 </h2>
                 <button
                   onClick={() => setShowPanel(false)}
@@ -190,96 +248,81 @@ export const EventDetailPage: React.FC = () => {
 
               <AddressSearch onSelectAddress={handleSelectAddress} />
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-4 gap-2 mb-3">
                 <button
                   onClick={() => handleStartDrawing("barrier")}
-                  className={`p-3 flex flex-col items-center gap-2 border rounded-lg text-xs font-medium transition-all ${
+                  className={`p-2 flex flex-col items-center gap-1 border rounded-lg text-xs font-medium ${
                     selectedType === "barrier"
-                      ? "bg-orange-50 border-orange-500 text-orange-700"
-                      : "border-gray-200 text-gray-600 hover:border-orange-500"
+                      ? "bg-orange-50 border-orange-500"
+                      : "border-gray-200"
                   }`}
                 >
-                  <MapPin size={20} />
-                  <span>Barrage</span>
+                  <MapPin size={18} />
+                  <span className="text-[10px]">Barrage</span>
                 </button>
                 <button
                   onClick={() => handleStartDrawing("segment")}
-                  className={`p-3 flex flex-col items-center gap-2 border rounded-lg text-xs font-medium transition-all ${
+                  className={`p-2 flex flex-col items-center gap-1 border rounded-lg text-xs font-medium ${
                     selectedType === "segment"
-                      ? "bg-purple-50 border-purple-500 text-purple-700"
-                      : "border-gray-200 text-gray-600 hover:border-purple-500"
+                      ? "bg-purple-50 border-purple-500"
+                      : "border-gray-200"
                   }`}
                 >
-                  <Route size={20} />
-                  <span>Tronçon</span>
+                  <Route size={18} />
+                  <span className="text-[10px]">Tronçon</span>
                 </button>
                 <button
                   onClick={() => handleStartDrawing("zone")}
-                  className={`p-3 flex flex-col items-center gap-2 border rounded-lg text-xs font-medium transition-all ${
+                  className={`p-2 flex flex-col items-center gap-1 border rounded-lg text-xs font-medium ${
                     selectedType === "zone"
-                      ? "bg-red-50 border-red-500 text-red-700"
-                      : "border-gray-200 text-gray-600 hover:border-red-500"
+                      ? "bg-red-50 border-red-500"
+                      : "border-gray-200"
                   }`}
                 >
-                  <MapIcon size={20} />
-                  <span>Zone</span>
+                  <MapIcon size={18} />
+                  <span className="text-[10px]">Zone</span>
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingGpx}
+                  className="p-2 flex flex-col items-center gap-1 border border-gray-200 rounded-lg text-xs font-medium hover:border-primary disabled:opacity-50"
+                >
+                  <FileSpreadsheet size={18} />
+                  <span className="text-[10px]">GPX</span>
                 </button>
               </div>
-
-              <div className="text-xs text-gray-500 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-gray-100 rounded font-medium">
-                    1
-                  </span>
-                  <span>Cherche une adresse pour centrer la carte</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-gray-100 rounded font-medium">
-                    2
-                  </span>
-                  <span>Sélectionne un type et dessine</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-gray-100 rounded font-medium">
-                    3
-                  </span>
-                  <span>Clique une closure pour éditer</span>
-                </div>
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".gpx"
+                onChange={handleGpxUpload}
+                className="hidden"
+              />
             </div>
 
             {closures.length > 0 && (
-              <div className="border-t border-gray-200 p-5 max-h-96 overflow-y-auto">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                  Closures ({closures.length})
-                </h3>
+              <div className="border-t border-gray-200 p-4 overflow-y-auto flex-1">
                 <div className="space-y-2">
                   {closures.map((closure) => (
                     <div
                       key={closure.id}
                       onClick={() => handleClosureClick(closure)}
-                      className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                      className="p-3 bg-gray-50 rounded-lg active:bg-gray-100"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm text-gray-900 truncate">
                             {closure.name}
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-gray-500">
                             {new Date(closure.start_time).toLocaleTimeString(
                               "fr-FR",
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}{" "}
-                            →{" "}
+                              { hour: "2-digit", minute: "2-digit" }
+                            )}
+                            {" → "}
                             {new Date(closure.end_time).toLocaleTimeString(
                               "fr-FR",
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
+                              { hour: "2-digit", minute: "2-digit" }
                             )}
                           </div>
                         </div>
@@ -288,7 +331,7 @@ export const EventDetailPage: React.FC = () => {
                             e.stopPropagation();
                             handleDelete(closure);
                           }}
-                          className="px-2 py-1 text-xs text-red-600 bg-white border border-red-200 rounded hover:bg-red-50"
+                          className="px-2 py-1 text-xs text-red-600 bg-white border border-red-200 rounded"
                         >
                           Suppr.
                         </button>
@@ -304,28 +347,28 @@ export const EventDetailPage: React.FC = () => {
         {!showPanel && (
           <button
             onClick={() => setShowPanel(true)}
-            className="absolute top-5 left-5 bg-primary text-white px-5 py-3 rounded-full shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2 font-medium"
+            className="absolute top-4 left-4 bg-primary text-white px-4 py-2.5 rounded-full shadow-xl active:scale-95 transition-transform flex items-center gap-2 text-sm font-medium"
           >
-            <MapPin size={18} />
-            <span>Gérer closures</span>
+            <MapPin size={16} />
+            <span>Closures</span>
           </button>
         )}
 
-        <div className="absolute bottom-5 left-5 bg-white rounded-xl shadow-lg p-4">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-lg p-3">
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
             Légende
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-3 bg-orange-400 bg-opacity-50 border-2 border-orange-600 rounded"></div>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-2 bg-orange-400 bg-opacity-50 border-2 border-orange-600 rounded"></div>
               <span className="text-xs text-gray-600">Barrage</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-3 bg-purple-400 bg-opacity-50 border-2 border-purple-600 rounded"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-2 bg-purple-400 bg-opacity-50 border-2 border-purple-600 rounded"></div>
               <span className="text-xs text-gray-600">Tronçon</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-3 bg-red-400 bg-opacity-40 border-2 border-red-600 rounded"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-2 bg-red-400 bg-opacity-40 border-2 border-red-600 rounded"></div>
               <span className="text-xs text-gray-600">Zone</span>
             </div>
           </div>

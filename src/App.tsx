@@ -6,6 +6,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { AdminPage } from "@/pages/AdminPage";
 import { EventDetailPage } from "@/pages/EventDetailPage";
+import { PublicEventPage } from "@/pages/PublicEventPage";
 
 // Configuration React Query
 const queryClient = new QueryClient({
@@ -103,6 +104,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      <Route path="/events/:slug" element={<PublicEventPage />} />
 
       {/* Redirection par défaut */}
       <Route path="*" element={<Navigate to="/" replace />} />
