@@ -103,7 +103,7 @@ jobs:
         env:
           PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
           PORTAINER_TOKEN: ${{ secrets.PORTAINER_TOKEN }}
-          STACK_ID: ${{ secrets.PORTAINER_STACK_ID }}
+          STACK_ID: 95
         run: |
           curl -X POST "$PORTAINER_URL/api/stacks/$STACK_ID/git/redeploy" \
             -H "X-API-Key: $PORTAINER_TOKEN" \
