@@ -2,13 +2,16 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
-import { PublicMap } from "@/components/public/PublicMap";
+import { PublicMap, type SelectionMode } from "@/components/public/PublicMap";
 import { RouteForm } from "@/components/public/RouteForm";
 import { RouteInfo } from "@/components/public/RouteInfo";
 import { NavigationPanel } from "@/components/public/NavigationPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useRouteProgress } from "@/hooks/useRouteProgress";
-import { usePositionInterpolation, easingFunctions } from "@/hooks/usePositionInterpolation";
+import {
+  usePositionInterpolation,
+  easingFunctions,
+} from "@/hooks/usePositionInterpolation";
 import { useTutorial } from "@/contexts/TutorialContext";
 import { publicEventTutorialSteps } from "@/config/tutorials";
 import { api } from "@/services/api";
@@ -40,6 +43,7 @@ export const PublicEventPage: React.FC = () => {
   const [calculating, setCalculating] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [rawPosition, setRawPosition] = useState<Coordinates | null>(null);
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>("none");
 
   const { watchPosition, clearWatch } = useGeolocation();
   const watchIdRef = useRef<number | null>(null);
@@ -85,6 +89,10 @@ export const PublicEventPage: React.FC = () => {
     setOrigin(orig);
     setDestination(dest);
 
+    // Timeout controller pour éviter les requêtes bloquées
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/route`, {
         method: "POST",
@@ -95,9 +103,23 @@ export const PublicEventPage: React.FC = () => {
           profile: "driving",
           eventSlug: event.slug,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
+        // Gérer le rate limiting (429)
+        if (response.status === 429) {
+          console.warn("Rate limit reached, queue too large");
+          if (!navigating) {
+            alert(
+              "Trop de requêtes en cours. Veuillez patienter quelques secondes."
+            );
+          }
+          throw new Error("Rate limit exceeded");
+        }
+
         const error = await response.json();
 
         // Gérer les erreurs Valhalla
@@ -122,12 +144,29 @@ export const PublicEventPage: React.FC = () => {
       const data = await response.json();
       setRoute(data);
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error("Route error:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Impossible de calculer l'itinéraire"
-      );
+
+      // Ne pas alerter en navigation pour éviter d'interrompre
+      if (!navigating) {
+        if (error instanceof Error && error.name === "AbortError") {
+          alert("La requête a pris trop de temps. Vérifiez votre connexion.");
+        } else if (
+          error instanceof Error &&
+          error.message !== "Rate limit exceeded"
+        ) {
+          alert(
+            error instanceof Error
+              ? error.message
+              : "Impossible de calculer l'itinéraire"
+          );
+        }
+      } else {
+        console.warn(
+          "Route recalculation failed during navigation, continuing with current route"
+        );
+      }
+      throw error; // Re-throw pour le catch du recalcul
     } finally {
       setCalculating(false);
     }
@@ -147,15 +186,38 @@ export const PublicEventPage: React.FC = () => {
     // Définir position initiale
     setRawPosition(origin);
 
+    // Variables pour le throttle du recalcul
+    let lastRecalculateTime = 0;
+    let isRecalculating = false;
+    const RECALCULATE_COOLDOWN = 15000; // 15 secondes minimum (5 cycles de queue backend)
+    const DEVIATION_THRESHOLD = 0.05; // 50 mètres en km
+
     // Fallback : si pas de GPS après 3s, rester sur origin
     const fallbackTimeout = setTimeout(() => {
       console.warn("GPS timeout, using origin as position");
       setRawPosition(origin);
     }, 3000);
 
+    // Throttle pour les mises à jour GPS
+    let lastUpdateTime = 0;
+    const GPS_UPDATE_INTERVAL = 4000; // 4 secondes
+
     // Démarrer le suivi GPS
     const id = watchPosition((pos) => {
       clearTimeout(fallbackTimeout);
+
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateTime;
+
+      // Ignorer les updates trop fréquentes
+      if (timeSinceLastUpdate < GPS_UPDATE_INTERVAL) {
+        console.log(
+          `GPS update ignored (throttled): ${timeSinceLastUpdate}ms since last update`
+        );
+        return;
+      }
+
+      lastUpdateTime = now;
       console.log("GPS position received:", pos);
       const currentPos = { lng: pos.lng, lat: pos.lat };
 
@@ -163,12 +225,35 @@ export const PublicEventPage: React.FC = () => {
       setRawPosition(currentPos);
       console.log("Current position set:", currentPos);
 
-      // Recalculer si déviation > 50m
-      if (origin) {
-        const distance = calculateDistance(currentPos, origin);
-        if (distance > 0.05) {
-          // 50 mètres en km
-          handleCalculateRoute(currentPos, destination!);
+      // Recalculer si déviation significative ET cooldown respecté
+      if (routeProgress && destination) {
+        const now = Date.now();
+        const timeSinceLastRecalculate = now - lastRecalculateTime;
+
+        // Vérifier si on dévie de la route
+        const isOffRoute =
+          !routeProgress.isOnRoute ||
+          routeProgress.deviationDistance > DEVIATION_THRESHOLD;
+
+        if (
+          isOffRoute &&
+          !isRecalculating &&
+          timeSinceLastRecalculate >= RECALCULATE_COOLDOWN
+        ) {
+          console.log(
+            `Recalculating route: deviation=${routeProgress.deviationDistance}km, isOnRoute=${routeProgress.isOnRoute}`
+          );
+          isRecalculating = true;
+          lastRecalculateTime = now;
+
+          handleCalculateRoute(currentPos, destination)
+            .catch((error) => {
+              console.error("Route recalculation failed:", error);
+              // Ne pas bloquer la navigation en cas d'erreur
+            })
+            .finally(() => {
+              isRecalculating = false;
+            });
         }
       }
     });
@@ -270,8 +355,10 @@ export const PublicEventPage: React.FC = () => {
           currentPosition={currentPosition}
           navigating={navigating}
           routeProgress={routeProgress}
+          selectionMode={selectionMode}
           onOriginSelect={(coords) => {
             setOrigin(coords);
+            setSelectionMode("none");
             // Réinitialiser la destination si on resélectionne l'origine
             if (destination) {
               setDestination(null);
@@ -280,6 +367,7 @@ export const PublicEventPage: React.FC = () => {
           }}
           onDestinationSelect={(coords) => {
             setDestination(coords);
+            setSelectionMode("none");
             // Calculer automatiquement l'itinéraire
             if (origin) {
               handleCalculateRoute(origin, coords);
@@ -324,7 +412,7 @@ export const PublicEventPage: React.FC = () => {
 
       {/* Form - masqué en navigation sur mobile */}
       <div
-        className={`bg-white border-t border-gray-200 p-4 flex-shrink-0 ${
+        className={`bg-white border-t border-gray-200 flex-shrink-0 ${
           navigating ? "hidden md:block" : ""
         }`}
       >
@@ -332,9 +420,13 @@ export const PublicEventPage: React.FC = () => {
           onCalculate={handleCalculateRoute}
           onOriginChange={setOrigin}
           loading={calculating}
+          selectionMode={selectionMode}
+          onSelectionModeChange={setSelectionMode}
+          origin={origin}
+          destination={destination}
         />
         {activeClosures.length === 0 && (
-          <p className="text-sm text-gray-500 mt-2 text-center">
+          <p className="text-sm text-gray-500 mt-2 pb-3 text-center">
             Aucune fermeture active pour le moment
           </p>
         )}

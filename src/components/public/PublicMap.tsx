@@ -19,6 +19,8 @@ interface RouteProgress {
   deviationDistance: number;
 }
 
+export type SelectionMode = "none" | "origin" | "destination";
+
 interface PublicMapProps {
   closures: Closure[];
   route?: GeoJSON.LineString;
@@ -27,6 +29,7 @@ interface PublicMapProps {
   currentPosition?: Coordinates | null;
   navigating?: boolean;
   routeProgress?: RouteProgress | null;
+  selectionMode: SelectionMode;
   onOriginSelect?: (coords: Coordinates) => void;
   onDestinationSelect?: (coords: Coordinates) => void;
 }
@@ -39,6 +42,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   currentPosition,
   navigating,
   routeProgress,
+  selectionMode,
   onOriginSelect,
   onDestinationSelect,
 }) => {
@@ -50,8 +54,6 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   const currentPosMarkerRef = useRef<maplibregl.Marker | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
   const lastBearingRef = useRef<number>(0);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const longPressMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // ✅ FIX DÉCALAGE: Observer les changements de taille
   useEffect(() => {
@@ -105,81 +107,34 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     };
   }, []);
 
-  // Gérer les appuis longs
+  // Gérer les clics sur la carte pour placer les marqueurs
   useEffect(() => {
     if (!map.current || !mapLoaded || navigating) return;
     if (!onOriginSelect && !onDestinationSelect) return;
 
-    const handleLongPress = (
+    const handleMapClick = (
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent
     ) => {
-      if (navigating) return;
+      if (navigating || selectionMode === "none") return;
 
       const coords = { lng: e.lngLat.lng, lat: e.lngLat.lat };
 
-      const el = document.createElement("div");
-      el.className = "long-press-indicator";
-      el.innerHTML = `
-        <div class="relative">
-          <div class="w-16 h-16 bg-blue-500 rounded-full opacity-30 animate-pulse"></div>
-          <div class="absolute inset-0 flex items-center justify-center">
-            <div class="w-8 h-8 bg-blue-600 rounded-full border-2 border-white"></div>
-          </div>
-        </div>
-      `;
-
-      longPressMarkerRef.current = new maplibregl.Marker({
-        element: el,
-        anchor: "center",
-      })
-        .setLngLat([coords.lng, coords.lat])
-        .addTo(map.current!);
-
-      longPressTimerRef.current = setTimeout(() => {
-        longPressMarkerRef.current?.remove();
-        longPressMarkerRef.current = null;
-
-        if (!origin && onOriginSelect) {
-          onOriginSelect(coords);
-        } else if (origin && !destination && onDestinationSelect) {
-          onDestinationSelect(coords);
-        } else if (origin && destination && onOriginSelect) {
-          onOriginSelect(coords);
-        }
-      }, 500);
-    };
-
-    const handlePressEnd = () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
+      if (selectionMode === "origin" && onOriginSelect) {
+        onOriginSelect(coords);
+      } else if (selectionMode === "destination" && onDestinationSelect) {
+        onDestinationSelect(coords);
       }
-      longPressMarkerRef.current?.remove();
-      longPressMarkerRef.current = null;
     };
 
-    map.current.on("mousedown", handleLongPress);
-    map.current.on("mouseup", handlePressEnd);
-    map.current.on("mousemove", handlePressEnd);
-    map.current.on("touchstart", handleLongPress);
-    map.current.on("touchend", handlePressEnd);
-    map.current.on("touchmove", handlePressEnd);
+    map.current.on("click", handleMapClick);
 
     return () => {
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-      longPressMarkerRef.current?.remove();
-      map.current?.off("mousedown", handleLongPress);
-      map.current?.off("mouseup", handlePressEnd);
-      map.current?.off("mousemove", handlePressEnd);
-      map.current?.off("touchstart", handleLongPress);
-      map.current?.off("touchend", handlePressEnd);
-      map.current?.off("touchmove", handlePressEnd);
+      map.current?.off("click", handleMapClick);
     };
   }, [
     mapLoaded,
     navigating,
-    origin,
-    destination,
+    selectionMode,
     onOriginSelect,
     onDestinationSelect,
   ]);
@@ -510,6 +465,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
         bottom: 0,
         width: "100%",
         height: "100%",
+        cursor: selectionMode !== "none" ? "crosshair" : "grab",
       }}
     />
   );
