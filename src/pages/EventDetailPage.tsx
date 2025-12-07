@@ -87,19 +87,23 @@ export const EventDetailPage: React.FC = () => {
               setShowPanel(false);
               setEditingClosure(null);
               setSelectedType(undefined);
-            }
+            },
           };
         }
 
         // Ouvrir automatiquement le panneau pour les étapes qui en ont besoin
-        if (step.id === "event-closures-btn" || step.id === "event-barrier" ||
-            step.id === "event-segment" || step.id === "event-zone" ||
-            step.id === "event-closures-list") {
+        if (
+          step.id === "event-closures-btn" ||
+          step.id === "event-barrier" ||
+          step.id === "event-segment" ||
+          step.id === "event-zone" ||
+          step.id === "event-closures-list"
+        ) {
           return {
             ...step,
             action: () => {
               setShowPanel(true);
-            }
+            },
           };
         }
         return step;
@@ -124,9 +128,7 @@ export const EventDetailPage: React.FC = () => {
     }
   };
 
-  const handleDrawCreate = (
-    geometry: GeoJSON.Geometry
-  ) => {
+  const handleDrawCreate = (geometry: GeoJSON.Geometry) => {
     setDrawingGeometry(geometry);
     setEditingClosure(null);
     setShowModal(true);
@@ -288,13 +290,10 @@ export const EventDetailPage: React.FC = () => {
         </div>
 
         {showPanel && (
-          <div className="absolute inset-x-0 bottom-0 md:inset-x-4 md:top-4 md:bottom-auto bg-white md:rounded-2xl rounded-t-3xl shadow-2xl max-h-[60vh] md:max-h-[70vh] overflow-hidden flex flex-col animate-slide-up">
+          <div className="absolute inset-x-0 top-0 md:inset-x-4 md:top-4 md:bottom-auto bg-white md:rounded-2xl shadow-2xl max-h-[40vh] md:max-h-[70vh] overflow-hidden flex flex-col animate-slide-up">
             {/* Handle bar pour mobile */}
-            <div className="md:hidden flex justify-center pt-2 pb-1">
-              <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
-            </div>
 
-            <div className="p-4 flex-shrink-0">
+            <div className="p-3 flex-shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-900">
                   Fermetures ({closures.length})
@@ -315,46 +314,67 @@ export const EventDetailPage: React.FC = () => {
                 <button
                   onClick={() => handleStartDrawing("barrier")}
                   data-tutorial="barrier-btn"
-                  className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
+                  className={`p-1 flex flex-col items-center gap-1 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "barrier"
                       ? "bg-orange-50 border-orange-500 shadow-sm"
                       : "border-gray-200 hover:border-orange-300"
                   }`}
                 >
-                  <MapPin size={20} className={selectedType === "barrier" ? "text-orange-600" : "text-gray-600"} />
+                  <MapPin
+                    size={20}
+                    className={
+                      selectedType === "barrier"
+                        ? "text-orange-600"
+                        : "text-gray-600"
+                    }
+                  />
                   <span className="text-[10px]">Barrage</span>
                 </button>
                 <button
                   onClick={() => handleStartDrawing("segment")}
                   data-tutorial="segment-btn"
-                  className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
+                  className={`p-1 flex flex-col items-center gap-1  border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "segment"
                       ? "bg-purple-50 border-purple-500 shadow-sm"
                       : "border-gray-200 hover:border-purple-300"
                   }`}
                 >
-                  <Route size={20} className={selectedType === "segment" ? "text-purple-600" : "text-gray-600"} />
+                  <Route
+                    size={20}
+                    className={
+                      selectedType === "segment"
+                        ? "text-purple-600"
+                        : "text-gray-600"
+                    }
+                  />
                   <span className="text-[10px]">Tronçon</span>
                 </button>
                 <button
                   onClick={() => handleStartDrawing("zone")}
                   data-tutorial="zone-btn"
-                  className={`p-2.5 flex flex-col items-center gap-1.5 border rounded-xl text-xs font-medium transition-all active:scale-95 ${
+                  className={`p-1 flex flex-col items-center gap-1  border rounded-xl text-xs font-medium transition-all active:scale-95 ${
                     selectedType === "zone"
                       ? "bg-red-50 border-red-500 shadow-sm"
                       : "border-gray-200 hover:border-red-300"
                   }`}
                 >
-                  <MapIcon size={20} className={selectedType === "zone" ? "text-red-600" : "text-gray-600"} />
+                  <MapIcon
+                    size={20}
+                    className={
+                      selectedType === "zone" ? "text-red-600" : "text-gray-600"
+                    }
+                  />
                   <span className="text-[10px]">Zone</span>
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingGpx}
-                  className="p-2.5 flex flex-col items-center gap-1.5 border border-gray-200 rounded-xl text-xs font-medium hover:border-primary transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-1 flex flex-col items-center gap-1 border border-gray-200 rounded-xl text-xs font-medium hover:border-primary transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileSpreadsheet size={20} className="text-gray-600" />
-                  <span className="text-[10px]">{uploadingGpx ? "..." : "GPX"}</span>
+                  <span className="text-[10px]">
+                    {uploadingGpx ? "..." : "GPX"}
+                  </span>
                 </button>
               </div>
               <input
@@ -367,7 +387,10 @@ export const EventDetailPage: React.FC = () => {
             </div>
 
             {closures.length > 0 && (
-              <div className="border-t border-gray-200 px-4 pb-4 pt-3 overflow-y-auto flex-1" data-tutorial="closures-list">
+              <div
+                className="border-t border-gray-200 px-4 pb-4 pt-3 overflow-y-auto flex-1 h-32"
+                data-tutorial="closures-list"
+              >
                 <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Liste ({closures.length})
                 </div>
