@@ -280,25 +280,6 @@ export const PublicEventPage: React.FC = () => {
     };
   }, [clearWatch]);
 
-  // Calcul distance haversine
-  const calculateDistance = (pos1: Coordinates, pos2: Coordinates): number => {
-    const R = 6371; // Rayon terre en km
-    const dLat = toRad(pos2.lat - pos1.lat);
-    const dLng = toRad(pos2.lng - pos1.lng);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(pos1.lat)) *
-        Math.cos(toRad(pos2.lat)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const toRad = (deg: number) => deg * (Math.PI / 180);
-
   if (!event) {
     return (
       <div className="h-[100dvh] flex items-center justify-center">

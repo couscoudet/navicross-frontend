@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Search, Navigation, ArrowRight, Locate, MapPin } from "lucide-react";
+import { Search, Navigation, Locate, MapPin } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 
 interface Coordinates {
@@ -163,15 +163,6 @@ export const RouteForm: React.FC<RouteFormProps> = ({
     if (selectedOrigin && selectedDest) {
       onCalculate(selectedOrigin, selectedDest);
     }
-  };
-
-  const swap = () => {
-    const tempQuery = originQuery;
-    const tempCoords = selectedOrigin;
-    setOriginQuery(destQuery);
-    setSelectedOrigin(selectedDest);
-    setDestQuery(tempQuery);
-    setSelectedDest(tempCoords);
   };
 
   return (

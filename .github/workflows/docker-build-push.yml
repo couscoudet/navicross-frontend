@@ -105,6 +105,17 @@ jobs:
       - name: Print image digest
         run: echo ${{ steps.build-and-push.outputs.digest }}
 
+      - name: Redeploy via Portainer
+        env:
+          PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+          PORTAINER_TOKEN: ${{ secrets.PORTAINER_TOKEN }}
+          STACK_ID: ${{ secrets.PORTAINER_STACK_ID }}
+        run: |
+          curl -X POST "$PORTAINER_URL/api/stacks/$STACK_ID/git/redeploy" \
+            -H "X-API-Key: $PORTAINER_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"pullImage": true}'
+
   # Optional: Add a deployment notification job
   notify:
     runs-on: ubuntu-latest
