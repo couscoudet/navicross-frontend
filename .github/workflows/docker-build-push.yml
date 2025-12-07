@@ -64,6 +64,12 @@ jobs:
             # Tag with short SHA
             type=sha,prefix={{branch}}-
 
+      - name: Debug secrets
+        run: |
+          echo "API_URL existe: ${{ secrets.VITE_API_URL != '' }}"
+          echo "PORTAINER_URL existe: ${{ secrets.PORTAINER_URL != '' }}"
+          echo "PORTAINER_TOKEN existe: ${{ secrets.PORTAINER_TOKEN != '' }}"
+          
       # Build and push Docker image
       - name: Build and push Docker image
         id: build-and-push
