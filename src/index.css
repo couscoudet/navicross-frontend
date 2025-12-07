@@ -117,3 +117,156 @@ select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af; /* gray-400 */
 }
+
+/* ================================
+   CORRECTIONS CSS POUR NAVICROSS
+   ================================ */
+
+/* 1. CONTENEUR DE LA CARTE - CRITIQUE */
+/* Assure-toi que le div de la carte a ces styles */
+.map-container {
+  position: relative !important; /* ← ESSENTIEL pour les marqueurs */
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Si tu utilises Tailwind avec "absolute inset-0" */
+/* C'est OK aussi, mais le parent DOIT être "relative" */
+
+/* 2. MARQUEURS MAPLIBRE - Forcer la visibilité */
+.maplibregl-marker {
+  position: absolute !important;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+}
+
+/* 3. Classes personnalisées pour tes marqueurs */
+.origin-marker,
+.destination-marker,
+.navigation-marker {
+  position: relative !important;
+  display: block !important;
+  pointer-events: auto !important;
+}
+
+/* 4. Canvas de la carte */
+.maplibregl-canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 5. Container principal de MapLibre */
+.maplibregl-map {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* ================================
+   DEBUG: Rendre les marqueurs ULTRA visibles
+   ================================ */
+
+/* Version debug - À retirer après fix */
+.origin-marker-debug,
+.destination-marker-debug {
+  position: relative !important;
+  display: block !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+/* Animation de pulse pour debug */
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+.marker-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* ============================================
+   FIX DÉCALAGE MARQUEURS MAPLIBRE
+   ============================================ */
+
+/* Container principal de la carte */
+.maplibregl-map {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Canvas de la carte */
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Marqueurs - Position relative au conteneur */
+.maplibregl-marker {
+  position: absolute !important;
+  /* Ne PAS forcer top/left ici, MapLibre les calcule */
+  will-change: transform;
+  pointer-events: auto !important;
+  z-index: 100 !important;
+}
+
+/* Container de contrôles MapLibre */
+.maplibregl-control-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+}
+
+.maplibregl-control-container > * {
+  pointer-events: auto !important;
+}
+
+/* ============================================
+   RESET DES TRANSFORMS PARASITES
+   ============================================ */
+
+/* Si tu as des transforms Tailwind qui foutent le bordel */
+.maplibregl-map,
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+  transform: none !important;
+}
+
+/* ============================================
+   PARENT DU COMPOSANT MAP
+   ============================================ */
+
+/* Le div qui contient <PublicMap> doit avoir ça */
+/* Ajoute cette classe au parent dans ton JSX */
+.map-wrapper {
+  position: relative !important;
+  width: 100%;
+  height: 100vh; /* ou 100% si dans un container avec height définie */
+  overflow: hidden;
+}
+
+/* Alternative si tu utilises Tailwind */
+/* .relative .w-full .h-screen devrait suffire */
