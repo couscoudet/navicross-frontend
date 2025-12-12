@@ -55,7 +55,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   const cameraAnimationRef = useRef<number | null>(null);
   const lastBearingRef = useRef<number>(0);
 
-  // ✅ FIX DÉCALAGE: Observer les changements de taille
+  // âœ… FIX DÃ‰CALAGE: Observer les changements de taille
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
@@ -95,7 +95,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
 
     map.current.on("load", () => {
       setMapLoaded(true);
-      // ✅ Resize après chargement
+      // âœ… Resize aprÃ¨s chargement
       setTimeout(() => {
         map.current?.resize();
       }, 100);
@@ -107,7 +107,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     };
   }, []);
 
-  // Gérer les clics sur la carte pour placer les marqueurs
+  // GÃ©rer les clics sur la carte pour placer les marqueurs
   useEffect(() => {
     if (!map.current || !mapLoaded || navigating) return;
     if (!onOriginSelect && !onDestinationSelect) return;
@@ -199,14 +199,18 @@ export const PublicMap: React.FC<PublicMapProps> = ({
       paint: { "line-color": "#DC2626", "line-width": 2 },
     });
 
-    const bounds = new maplibregl.LngLatBounds();
-    closures.forEach((closure) => {
-      closure.polygon.coordinates[0].forEach(([lng, lat]) =>
-        bounds.extend([lng, lat])
-      );
-    });
-    if (!bounds.isEmpty()) map.current.fitBounds(bounds, { padding: 50 });
-  }, [closures, mapLoaded]);
+    // ❌ SUPPRIMÉ: Ne pas centrer sur closures pendant navigation
+    // Centrer uniquement au premier chargement (sans origin/destination)
+    if (!origin && !destination) {
+      const bounds = new maplibregl.LngLatBounds();
+      closures.forEach((closure) => {
+        closure.polygon.coordinates[0].forEach(([lng, lat]) =>
+          bounds.extend([lng, lat])
+        );
+      });
+      if (!bounds.isEmpty()) map.current.fitBounds(bounds, { padding: 50 });
+    }
+  }, [closures, mapLoaded, origin, destination]);
 
   // Route
   useEffect(() => {
@@ -235,7 +239,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     }
   }, [route, mapLoaded, navigating]);
 
-  // ✅ MARQUEURS - VERSION FINALE
+  // âœ… MARQUEURS - VERSION FINALE
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
@@ -313,7 +317,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
       destMarkerRef.current = null;
     }
 
-    // ✅ Resize après ajout
+    // âœ… Resize aprÃ¨s ajout
     setTimeout(() => map.current?.resize(), 150);
   }, [origin, destination, mapLoaded]);
 

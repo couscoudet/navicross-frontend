@@ -48,6 +48,10 @@ export const PublicEventPage: React.FC = () => {
   const { watchPosition, clearWatch } = useGeolocation();
   const watchIdRef = useRef<number | null>(null);
 
+  // ✅ Refs pour éviter stale closures dans watchPosition callback
+  const routeRef = useRef<RouteResult | null>(null);
+  const destinationRef = useRef<Coordinates | null>(null);
+
   // Smooth position interpolation for better visual experience
   const currentPosition = usePositionInterpolation(rawPosition, {
     duration: 1000, // 1 second smooth transition
@@ -88,6 +92,8 @@ export const PublicEventPage: React.FC = () => {
     setCalculating(true);
     setOrigin(orig);
     setDestination(dest);
+    destinationRef.current = dest; // ✅ Sync ref
+    destinationRef.current = dest; // Sync ref for watchPosition closure
 
     // Timeout controller pour Ã©viter les requÃªtes bloquÃ©es
     const controller = new AbortController();
@@ -145,6 +151,9 @@ export const PublicEventPage: React.FC = () => {
 
       const data = await response.json();
       setRoute(data);
+      routeRef.current = data; // ✅ Sync ref
+      console.log("✅ Route calculated and ref updated:", data);
+      routeRef.current = data; // Sync ref for watchPosition closure
     } catch (error) {
       clearTimeout(timeoutId);
       console.error("Route error:", error);
@@ -175,108 +184,150 @@ export const PublicEventPage: React.FC = () => {
   };
 
   const handleStartNavigation = () => {
-    console.log("handleStartNavigation called", { origin, destination });
+    console.log("🚀 === START NAVIGATION ===");
+    console.log("📍 Origin:", origin);
+    console.log("🎯 Destination:", destination);
+    console.log("🗺️ Route exists:", !!route);
+    console.log("📏 Route ref exists:", !!routeRef.current);
 
     if (!origin || !destination) {
-      console.error("Missing origin or destination!");
+      console.error("❌ Missing origin or destination!");
       return;
     }
 
-    console.log("Starting navigation...");
+    console.log("✅ Starting navigation...");
     setNavigating(true);
 
-    // DÃ©finir position initiale
     setRawPosition(origin);
 
-    // Variables pour le throttle du recalcul
     let lastRecalculateTime = 0;
     let isRecalculating = false;
-    const RECALCULATE_COOLDOWN = 8000; // 8 secondes (compromis réactivité/charge serveur)
-    const DEVIATION_THRESHOLD = 50; // 50 mètres (deviationDistance est en mètres)
+    const RECALCULATE_COOLDOWN = 8000;
+    const DEVIATION_THRESHOLD = 50;
 
-    // Fallback : si pas de GPS aprÃ¨s 3s, rester sur origin
+    console.log(
+      "⚙️ Config: cooldown=" +
+        RECALCULATE_COOLDOWN +
+        "ms, threshold=" +
+        DEVIATION_THRESHOLD +
+        "m"
+    );
+
     const fallbackTimeout = setTimeout(() => {
-      console.warn("GPS timeout, using origin as position");
+      console.warn("⏰ GPS timeout, using origin as position");
       setRawPosition(origin);
     }, 3000);
 
-    // Throttle pour les mises Ã  jour GPS
     let lastUpdateTime = 0;
-    const GPS_UPDATE_INTERVAL = 2000; // 2 secondes (réactivité améliorée)
+    const GPS_UPDATE_INTERVAL = 2000;
 
-    // DÃ©marrer le suivi GPS
     const id = watchPosition((pos) => {
       clearTimeout(fallbackTimeout);
 
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateTime;
 
-      // Ignorer les updates trop frÃ©quentes
       if (timeSinceLastUpdate < GPS_UPDATE_INTERVAL) {
         console.log(
-          `GPS update ignored (throttled): ${timeSinceLastUpdate}ms since last update`
+          `⏭️ GPS update ignored (throttled): ${timeSinceLastUpdate}ms since last update`
         );
         return;
       }
 
       lastUpdateTime = now;
-      console.log("GPS position received:", pos);
+      console.log("📡 GPS position received:", pos);
       const currentPos = { lng: pos.lng, lat: pos.lat };
 
-      // Mettre Ã  jour la position actuelle (raw, will be interpolated)
       setRawPosition(currentPos);
-      console.log("Current position set:", currentPos);
 
-      // Recalculer si déviation significative ET cooldown respecté
-      if (routeProgress && destination) {
-        const now = Date.now();
+      const currentRoute = routeRef.current;
+      const currentDestination = destinationRef.current;
+
+      console.log("🔍 Checking deviation...");
+      console.log("  - Route ref:", !!currentRoute);
+      console.log("  - Destination ref:", currentDestination);
+      console.log("  - Current position:", currentPos);
+
+      if (currentRoute?.geometry && currentDestination) {
         const timeSinceLastRecalculate = now - lastRecalculateTime;
 
-        // Vérifier si on dévie de la route (deviationDistance est en MÈTRES)
-        const deviationMeters = routeProgress.deviationDistance;
-        const isOffRoute =
-          !routeProgress.isOnRoute || deviationMeters > DEVIATION_THRESHOLD;
+        try {
+          const routeCoords = currentRoute.geometry.coordinates as number[][];
 
-        console.log(
-          `Route check: isOnRoute=${
-            routeProgress.isOnRoute
-          }, deviation=${deviationMeters.toFixed(0)}m, cooldown=${(
-            timeSinceLastRecalculate / 1000
-          ).toFixed(1)}s`
-        );
+          let minDistDegrees = Infinity;
+          routeCoords.forEach((coord) => {
+            const distDegrees = Math.sqrt(
+              Math.pow(coord[0] - currentPos.lng, 2) +
+                Math.pow(coord[1] - currentPos.lat, 2)
+            );
+            if (distDegrees < minDistDegrees) minDistDegrees = distDegrees;
+          });
 
-        if (
-          isOffRoute &&
-          !isRecalculating &&
-          timeSinceLastRecalculate >= RECALCULATE_COOLDOWN
-        ) {
-          console.warn(
-            `🔄 RECALCUL DÉCLENCHÉ: deviation=${deviationMeters.toFixed(
-              0
-            )}m, isOnRoute=${routeProgress.isOnRoute}`
-          );
-          isRecalculating = true;
-          lastRecalculateTime = now;
+          const deviationMeters = minDistDegrees * 111000;
+          const isOffRoute = deviationMeters > DEVIATION_THRESHOLD;
 
-          handleCalculateRoute(currentPos, destination)
-            .catch((error) => {
-              console.error("Route recalculation failed:", error);
-              // Ne pas bloquer la navigation en cas d'erreur
-            })
-            .finally(() => {
-              isRecalculating = false;
-            });
-        } else if (
-          isOffRoute &&
-          timeSinceLastRecalculate < RECALCULATE_COOLDOWN
-        ) {
+          console.log(`📊 DEVIATION CHECK:`);
+          console.log(`  - Distance to route: ${deviationMeters.toFixed(1)}m`);
+          console.log(`  - Is off route: ${isOffRoute}`);
           console.log(
-            `⏳ Déviation détectée mais cooldown actif (${(
-              (RECALCULATE_COOLDOWN - timeSinceLastRecalculate) /
-              1000
-            ).toFixed(1)}s restantes)`
+            `  - Cooldown: ${(timeSinceLastRecalculate / 1000).toFixed(1)}s / ${
+              RECALCULATE_COOLDOWN / 1000
+            }s`
           );
+          console.log(`  - Is recalculating: ${isRecalculating}`);
+
+          if (
+            isOffRoute &&
+            !isRecalculating &&
+            timeSinceLastRecalculate >= RECALCULATE_COOLDOWN
+          ) {
+            console.warn(`🔄 ========== RECALCUL DÉCLENCHÉ ==========`);
+            console.warn(`   Deviation: ${deviationMeters.toFixed(0)}m`);
+            console.warn(
+              `   From: ${currentPos.lng.toFixed(6)}, ${currentPos.lat.toFixed(
+                6
+              )}`
+            );
+            console.warn(
+              `   To: ${currentDestination.lng.toFixed(
+                6
+              )}, ${currentDestination.lat.toFixed(6)}`
+            );
+
+            isRecalculating = true;
+            lastRecalculateTime = now;
+
+            handleCalculateRoute(currentPos, currentDestination)
+              .then(() => {
+                console.log("✅ Recalcul réussi!");
+              })
+              .catch((error) => {
+                console.error("❌ Route recalculation failed:", error);
+              })
+              .finally(() => {
+                isRecalculating = false;
+                console.log("🏁 Recalcul terminé (flag cleared)");
+              });
+          } else if (
+            isOffRoute &&
+            timeSinceLastRecalculate < RECALCULATE_COOLDOWN
+          ) {
+            console.log(
+              `⏳ Déviation détectée mais cooldown actif (${(
+                (RECALCULATE_COOLDOWN - timeSinceLastRecalculate) /
+                1000
+              ).toFixed(1)}s restantes)`
+            );
+          } else if (isOffRoute && isRecalculating) {
+            console.log(`⏳ Déviation détectée mais recalcul déjà en cours`);
+          }
+        } catch (error) {
+          console.error("❌ Error calculating deviation:", error);
         }
+      } else {
+        console.warn("⚠️ Cannot check deviation:");
+        console.warn("  - Route geometry:", !!currentRoute?.geometry);
+        console.warn("  - Destination:", !!currentDestination);
       }
     });
 
