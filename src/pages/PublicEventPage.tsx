@@ -23,7 +23,7 @@ interface Coordinates {
 }
 
 interface RouteResult {
-  distance: number; // mètres
+  distance: number; // mÃ¨tres
   duration: number; // secondes
   geometry: GeoJSON.LineString;
   steps?: Array<{
@@ -75,7 +75,7 @@ export const PublicEventPage: React.FC = () => {
   // Tutorial
   const { autoStartTutorial } = useTutorial();
 
-  // Auto-démarrer le tutoriel à la première visite
+  // Auto-dÃ©marrer le tutoriel Ã  la premiÃ¨re visite
   useEffect(() => {
     if (event) {
       autoStartTutorial("public-event", publicEventTutorialSteps);
@@ -89,7 +89,7 @@ export const PublicEventPage: React.FC = () => {
     setOrigin(orig);
     setDestination(dest);
 
-    // Timeout controller pour éviter les requêtes bloquées
+    // Timeout controller pour Ã©viter les requÃªtes bloquÃ©es
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
@@ -109,12 +109,12 @@ export const PublicEventPage: React.FC = () => {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        // Gérer le rate limiting (429)
+        // GÃ©rer le rate limiting (429)
         if (response.status === 429) {
           console.warn("Rate limit reached, queue too large");
           if (!navigating) {
             alert(
-              "Trop de requêtes en cours. Veuillez patienter quelques secondes."
+              "Trop de requÃªtes en cours. Veuillez patienter quelques secondes."
             );
           }
           throw new Error("Rate limit exceeded");
@@ -122,23 +122,25 @@ export const PublicEventPage: React.FC = () => {
 
         const error = await response.json();
 
-        // Gérer les erreurs Valhalla
+        // GÃ©rer les erreurs Valhalla
         if (
           error.error_code === 442 ||
           error.error?.includes("No path could be found")
         ) {
           throw new Error(
-            "Aucun itinéraire trouvé. Les zones à éviter bloquent tous les chemins possibles."
+            "Aucun itinÃ©raire trouvÃ©. Les zones Ã  Ã©viter bloquent tous les chemins possibles."
           );
         }
 
         if (error.error_code === 171) {
           throw new Error(
-            "Zone à éviter trop grande. Veuillez réduire la taille des fermetures."
+            "Zone Ã  Ã©viter trop grande. Veuillez rÃ©duire la taille des fermetures."
           );
         }
 
-        throw new Error(error.message || "Impossible de calculer l'itinéraire");
+        throw new Error(
+          error.message || "Impossible de calculer l'itinÃ©raire"
+        );
       }
 
       const data = await response.json();
@@ -147,10 +149,10 @@ export const PublicEventPage: React.FC = () => {
       clearTimeout(timeoutId);
       console.error("Route error:", error);
 
-      // Ne pas alerter en navigation pour éviter d'interrompre
+      // Ne pas alerter en navigation pour Ã©viter d'interrompre
       if (!navigating) {
         if (error instanceof Error && error.name === "AbortError") {
-          alert("La requête a pris trop de temps. Vérifiez votre connexion.");
+          alert("La requÃªte a pris trop de temps. VÃ©rifiez votre connexion.");
         } else if (
           error instanceof Error &&
           error.message !== "Rate limit exceeded"
@@ -158,7 +160,7 @@ export const PublicEventPage: React.FC = () => {
           alert(
             error instanceof Error
               ? error.message
-              : "Impossible de calculer l'itinéraire"
+              : "Impossible de calculer l'itinÃ©raire"
           );
         }
       } else {
@@ -183,33 +185,33 @@ export const PublicEventPage: React.FC = () => {
     console.log("Starting navigation...");
     setNavigating(true);
 
-    // Définir position initiale
+    // DÃ©finir position initiale
     setRawPosition(origin);
 
     // Variables pour le throttle du recalcul
     let lastRecalculateTime = 0;
     let isRecalculating = false;
-    const RECALCULATE_COOLDOWN = 15000; // 15 secondes minimum (5 cycles de queue backend)
-    const DEVIATION_THRESHOLD = 0.05; // 50 mètres en km
+    const RECALCULATE_COOLDOWN = 8000; // 8 secondes (compromis réactivité/charge serveur)
+    const DEVIATION_THRESHOLD = 50; // 50 mètres (deviationDistance est en mètres)
 
-    // Fallback : si pas de GPS après 3s, rester sur origin
+    // Fallback : si pas de GPS aprÃ¨s 3s, rester sur origin
     const fallbackTimeout = setTimeout(() => {
       console.warn("GPS timeout, using origin as position");
       setRawPosition(origin);
     }, 3000);
 
-    // Throttle pour les mises à jour GPS
+    // Throttle pour les mises Ã  jour GPS
     let lastUpdateTime = 0;
-    const GPS_UPDATE_INTERVAL = 4000; // 4 secondes
+    const GPS_UPDATE_INTERVAL = 2000; // 2 secondes (réactivité améliorée)
 
-    // Démarrer le suivi GPS
+    // DÃ©marrer le suivi GPS
     const id = watchPosition((pos) => {
       clearTimeout(fallbackTimeout);
 
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateTime;
 
-      // Ignorer les updates trop fréquentes
+      // Ignorer les updates trop frÃ©quentes
       if (timeSinceLastUpdate < GPS_UPDATE_INTERVAL) {
         console.log(
           `GPS update ignored (throttled): ${timeSinceLastUpdate}ms since last update`
@@ -221,7 +223,7 @@ export const PublicEventPage: React.FC = () => {
       console.log("GPS position received:", pos);
       const currentPos = { lng: pos.lng, lat: pos.lat };
 
-      // Mettre à jour la position actuelle (raw, will be interpolated)
+      // Mettre Ã  jour la position actuelle (raw, will be interpolated)
       setRawPosition(currentPos);
       console.log("Current position set:", currentPos);
 
@@ -230,18 +232,28 @@ export const PublicEventPage: React.FC = () => {
         const now = Date.now();
         const timeSinceLastRecalculate = now - lastRecalculateTime;
 
-        // Vérifier si on dévie de la route
+        // Vérifier si on dévie de la route (deviationDistance est en MÈTRES)
+        const deviationMeters = routeProgress.deviationDistance;
         const isOffRoute =
-          !routeProgress.isOnRoute ||
-          routeProgress.deviationDistance > DEVIATION_THRESHOLD;
+          !routeProgress.isOnRoute || deviationMeters > DEVIATION_THRESHOLD;
+
+        console.log(
+          `Route check: isOnRoute=${
+            routeProgress.isOnRoute
+          }, deviation=${deviationMeters.toFixed(0)}m, cooldown=${(
+            timeSinceLastRecalculate / 1000
+          ).toFixed(1)}s`
+        );
 
         if (
           isOffRoute &&
           !isRecalculating &&
           timeSinceLastRecalculate >= RECALCULATE_COOLDOWN
         ) {
-          console.log(
-            `Recalculating route: deviation=${routeProgress.deviationDistance}km, isOnRoute=${routeProgress.isOnRoute}`
+          console.warn(
+            `🔄 RECALCUL DÉCLENCHÉ: deviation=${deviationMeters.toFixed(
+              0
+            )}m, isOnRoute=${routeProgress.isOnRoute}`
           );
           isRecalculating = true;
           lastRecalculateTime = now;
@@ -254,6 +266,16 @@ export const PublicEventPage: React.FC = () => {
             .finally(() => {
               isRecalculating = false;
             });
+        } else if (
+          isOffRoute &&
+          timeSinceLastRecalculate < RECALCULATE_COOLDOWN
+        ) {
+          console.log(
+            `⏳ Déviation détectée mais cooldown actif (${(
+              (RECALCULATE_COOLDOWN - timeSinceLastRecalculate) /
+              1000
+            ).toFixed(1)}s restantes)`
+          );
         }
       }
     });
@@ -271,7 +293,7 @@ export const PublicEventPage: React.FC = () => {
     }
   };
 
-  // Cleanup au démontage
+  // Cleanup au dÃ©montage
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
@@ -340,7 +362,7 @@ export const PublicEventPage: React.FC = () => {
           onOriginSelect={(coords) => {
             setOrigin(coords);
             setSelectionMode("none");
-            // Réinitialiser la destination si on resélectionne l'origine
+            // RÃ©initialiser la destination si on resÃ©lectionne l'origine
             if (destination) {
               setDestination(null);
               setRoute(null);
@@ -349,7 +371,7 @@ export const PublicEventPage: React.FC = () => {
           onDestinationSelect={(coords) => {
             setDestination(coords);
             setSelectionMode("none");
-            // Calculer automatiquement l'itinéraire
+            // Calculer automatiquement l'itinÃ©raire
             if (origin) {
               handleCalculateRoute(origin, coords);
             }
@@ -385,13 +407,13 @@ export const PublicEventPage: React.FC = () => {
               }}
               className="mt-2 w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
             >
-              Démarrer la navigation
+              DÃ©marrer la navigation
             </button>
           </div>
         )}
       </div>
 
-      {/* Form - masqué en navigation sur mobile */}
+      {/* Form - masquÃ© en navigation sur mobile */}
       <div
         className={`bg-white border-t border-gray-200 flex-shrink-0 ${
           navigating ? "hidden md:block" : ""
