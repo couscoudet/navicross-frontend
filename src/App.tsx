@@ -9,6 +9,7 @@ import { HomePage } from "@/pages/HomePage";
 import { AdminPage } from "@/pages/AdminPage";
 import { EventDetailPage } from "@/pages/EventDetailPage";
 import { PublicEventPage } from "@/pages/PublicEventPage";
+import { ErrorProvider } from "./contexts/ErrorContext";
 
 // Configuration React Query
 const queryClient = new QueryClient({
@@ -114,12 +115,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthProvider>
-          <TutorialProvider>
-            <AppRoutes />
-            <TutorialTooltip />
-          </TutorialProvider>
-        </AuthProvider>
+        <ErrorProvider>
+          <AuthProvider>
+            <TutorialProvider>
+              <AppRoutes />
+              <TutorialTooltip />
+            </TutorialProvider>
+          </AuthProvider>
+        </ErrorProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

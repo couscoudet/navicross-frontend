@@ -16,6 +16,9 @@ import { useTutorial } from "@/contexts/TutorialContext";
 import { publicEventTutorialSteps } from "@/config/tutorials";
 import { api } from "@/services/api";
 import type { Event, Closure } from "@/types";
+import { useError } from "@/contexts/ErrorContext";
+
+const { showError } = useError();
 
 interface Coordinates {
   lng: number;
@@ -119,8 +122,8 @@ export const PublicEventPage: React.FC = () => {
         if (response.status === 429) {
           console.warn("Rate limit reached, queue too large");
           if (!navigating) {
-            alert(
-              "Trop de requÃªtes en cours. Veuillez patienter quelques secondes."
+            showError(
+              "Trop de requêtes en cours. Veuillez patienter quelques secondes."
             );
           }
           throw new Error("Rate limit exceeded");
@@ -161,16 +164,14 @@ export const PublicEventPage: React.FC = () => {
       // Ne pas alerter en navigation pour Ã©viter d'interrompre
       if (!navigating) {
         if (error instanceof Error && error.name === "AbortError") {
-          alert("La requÃªte a pris trop de temps. VÃ©rifiez votre connexion.");
+          showError(
+            "La requête a pris trop de temps. Vérifiez votre connexion."
+          );
         } else if (
           error instanceof Error &&
           error.message !== "Rate limit exceeded"
         ) {
-          alert(
-            error instanceof Error
-              ? error.message
-              : "Impossible de calculer l'itinÃ©raire"
-          );
+          showError("Impossible de calculer l'itinéraire");
         }
       } else {
         console.warn(

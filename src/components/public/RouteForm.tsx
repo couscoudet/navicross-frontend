@@ -1,6 +1,9 @@
 import React, { useState, useRef } from "react";
 import { Search, Navigation, Locate, MapPin } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useError } from "@/contexts/ErrorContext";
+
+const { showError } = useError();
 
 interface Coordinates {
   lng: number;
@@ -74,13 +77,13 @@ export const RouteForm: React.FC<RouteFormProps> = ({
         setOriginQuery("📍 Ma position");
         onOriginChange?.(coords);
       } else {
-        alert(
+        showError(
           "Impossible d'obtenir votre position. Vérifiez les autorisations de localisation."
         );
       }
     } catch (error) {
       console.error("Geolocation error:", error);
-      alert("Erreur de géolocalisation. Sur mobile, HTTPS est requis.");
+      showError("Erreur de géolocalisation. Sur mobile, HTTPS est requis.");
     }
   };
 

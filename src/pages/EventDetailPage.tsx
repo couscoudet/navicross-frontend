@@ -25,6 +25,9 @@ import type {
   CreateClosureDto,
   UpdateClosureDto,
 } from "@/types";
+import { useError } from "@/contexts/ErrorContext";
+
+const { showError } = useError();
 
 export const EventDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -189,7 +192,7 @@ export const EventDetailPage: React.FC = () => {
     if (!file) return;
 
     if (!file.name.endsWith(".gpx")) {
-      alert("Seuls les fichiers .gpx sont acceptés");
+      showError("Seuls les fichiers .gpx sont acceptés");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -226,9 +229,7 @@ export const EventDetailPage: React.FC = () => {
       window.location.reload();
     } catch (error) {
       console.error("GPX upload error:", error);
-      alert(
-        error instanceof Error ? error.message : "Erreur lors de l'import GPX"
-      );
+      showError("Erreur lors de l'import GPX");
     } finally {
       setUploadingGpx(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
