@@ -53,7 +53,6 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
   const currentPosMarkerRef = useRef<maplibregl.Marker | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
-  const lastBearingRef = useRef<number>(0);
 
   // âœ… FIX DÃ‰CALAGE: Observer les changements de taille
   useEffect(() => {
@@ -407,38 +406,6 @@ export const PublicMap: React.FC<PublicMapProps> = ({
       cameraAnimationRef.current = requestAnimationFrame(smoothCameraFollow);
     }
   }, [currentPosition, navigating, route, mapLoaded, routeProgress]);
-
-  const calculateBearing = (
-    from: Coordinates,
-    routeCoords: number[][]
-  ): number => {
-    let closestIndex = 0;
-    let minDist = Infinity;
-    routeCoords.forEach((coord, i) => {
-      const dist = Math.sqrt(
-        Math.pow(coord[0] - from.lng, 2) + Math.pow(coord[1] - from.lat, 2)
-      );
-      if (dist < minDist) {
-        minDist = dist;
-        closestIndex = i;
-      }
-    });
-
-    const nextIndex = Math.min(closestIndex + 3, routeCoords.length - 1);
-    const to = {
-      lng: routeCoords[nextIndex][0],
-      lat: routeCoords[nextIndex][1],
-    };
-    const dLng = ((to.lng - from.lng) * Math.PI) / 180;
-    const lat1 = (from.lat * Math.PI) / 180;
-    const lat2 = (to.lat * Math.PI) / 180;
-    const y = Math.sin(dLng) * Math.cos(lat2);
-    const x =
-      Math.cos(lat1) * Math.sin(lat2) -
-      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
-    return (bearing + 360) % 360;
-  };
 
   return (
     <div
