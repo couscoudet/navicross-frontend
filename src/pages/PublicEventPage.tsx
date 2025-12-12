@@ -458,7 +458,7 @@ export const PublicEventPage: React.FC = () => {
               }}
               className="mt-2 w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
             >
-              DÃ©marrer la navigation
+              Démarrer la navigation
             </button>
           </div>
         )}

@@ -347,44 +347,26 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     }
 
     if (currentPosition && route) {
-      let bearing = 0;
       let displayPosition = currentPosition;
       if (routeProgress && routeProgress.isOnRoute) {
-        bearing = routeProgress.bearing;
         displayPosition = routeProgress.snappedPosition;
-      } else {
-        bearing = calculateBearing(currentPosition, route.coordinates);
       }
-
-      let bearingDiff = bearing - lastBearingRef.current;
-      if (bearingDiff > 180) bearingDiff -= 360;
-      if (bearingDiff < -180) bearingDiff += 360;
-      const smoothBearing = lastBearingRef.current + bearingDiff * 0.3;
-      lastBearingRef.current = smoothBearing;
 
       if (currentPosMarkerRef.current) {
         currentPosMarkerRef.current.setLngLat([
           displayPosition.lng,
           displayPosition.lat,
         ]);
-        const el = currentPosMarkerRef.current.getElement();
-        const arrow = el.querySelector(".navigation-arrow") as HTMLElement;
-        if (arrow) {
-          arrow.style.transition = "transform 0.5s ease-out";
-          arrow.style.transform = `rotate(${bearing}deg)`;
-        }
+        // Plus de rotation, juste mise à jour de position
       } else {
         const el = document.createElement("div");
         el.className = "navigation-marker";
         el.innerHTML = `
-          <div class="relative">
-            <div class="absolute inset-0 w-12 h-12 bg-blue-500 rounded-full opacity-20 animate-ping"></div>
-            <div class="relative w-12 h-12 bg-blue-600 rounded-full border-4 border-white shadow-2xl flex items-center justify-center">
-              <div class="navigation-arrow" style="transition: transform 0.5s ease-out; transform: rotate(${bearing}deg)">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-                  <path d="M12 2L12 22M12 2L6 8M12 2L18 8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
+          <div class="relative" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+            <div class="absolute inset-0 bg-orange-400 rounded-full opacity-30 animate-ping" style="width: 70px; height: 70px;"></div>
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+              <div style="font-size: 48px; line-height: 1;">🍺</div>
+              <div style="position: absolute; top: 8px; background: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid #FF8C00; font-weight: 900; font-size: 16px; color: #FF8C00;">1</div>
             </div>
           </div>
         `;
@@ -412,7 +394,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
             ],
             zoom: currentZoom < 16 ? 17 : currentZoom,
             pitch: currentPitch < 50 ? 55 : currentPitch,
-            bearing: smoothBearing,
+            bearing: 0, // Nord fixe
             duration: 300,
             essential: true,
           });
