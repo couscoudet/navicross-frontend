@@ -53,6 +53,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
   const currentPosMarkerRef = useRef<maplibregl.Marker | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
+  const lastBearingRef = useRef<number>(0);
 
   // âœ… FIX DÃ‰CALAGE: Observer les changements de taille
   useEffect(() => {
@@ -346,17 +347,30 @@ export const PublicMap: React.FC<PublicMapProps> = ({
     }
 
     if (currentPosition && route) {
+      let bearing = 0;
       let displayPosition = currentPosition;
+
+      // Calculer bearing pour orientation caméra
       if (routeProgress && routeProgress.isOnRoute) {
+        bearing = routeProgress.bearing;
         displayPosition = routeProgress.snappedPosition;
+      } else {
+        bearing = calculateBearing(currentPosition, route.coordinates);
       }
+
+      // Smooth bearing pour caméra
+      let bearingDiff = bearing - lastBearingRef.current;
+      if (bearingDiff > 180) bearingDiff -= 360;
+      if (bearingDiff < -180) bearingDiff += 360;
+      const smoothBearing = lastBearingRef.current + bearingDiff * 0.3;
+      lastBearingRef.current = smoothBearing;
 
       if (currentPosMarkerRef.current) {
         currentPosMarkerRef.current.setLngLat([
           displayPosition.lng,
           displayPosition.lat,
         ]);
-        // Plus de rotation, juste mise à jour de position
+        // ✅ Pas de rotation du marker (bière reste droite)
       } else {
         const el = document.createElement("div");
         el.className = "navigation-marker";
@@ -393,7 +407,7 @@ export const PublicMap: React.FC<PublicMapProps> = ({
             ],
             zoom: currentZoom < 16 ? 17 : currentZoom,
             pitch: currentPitch < 50 ? 55 : currentPitch,
-            bearing: 0, // Nord fixe
+            bearing: smoothBearing, // ✅ Caméra suit la route
             duration: 300,
             essential: true,
           });
@@ -406,6 +420,38 @@ export const PublicMap: React.FC<PublicMapProps> = ({
       cameraAnimationRef.current = requestAnimationFrame(smoothCameraFollow);
     }
   }, [currentPosition, navigating, route, mapLoaded, routeProgress]);
+
+  const calculateBearing = (
+    from: Coordinates,
+    routeCoords: number[][]
+  ): number => {
+    let closestIndex = 0;
+    let minDist = Infinity;
+    routeCoords.forEach((coord, i) => {
+      const dist = Math.sqrt(
+        Math.pow(coord[0] - from.lng, 2) + Math.pow(coord[1] - from.lat, 2)
+      );
+      if (dist < minDist) {
+        minDist = dist;
+        closestIndex = i;
+      }
+    });
+
+    const nextIndex = Math.min(closestIndex + 3, routeCoords.length - 1);
+    const to = {
+      lng: routeCoords[nextIndex][0],
+      lat: routeCoords[nextIndex][1],
+    };
+    const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+    const lat1 = (from.lat * Math.PI) / 180;
+    const lat2 = (to.lat * Math.PI) / 180;
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+    return (bearing + 360) % 360;
+  };
 
   return (
     <div
