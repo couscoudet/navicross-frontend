@@ -1,6 +1,6 @@
-// src/components/error/ErrorShutter.tsx
+// src/components/error/ErrorShutter.tsx - VERSION STYLES INLINE
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ErrorDetails } from "@/types/error.types";
 
 interface ErrorShutterProps {
@@ -9,47 +9,65 @@ interface ErrorShutterProps {
   onRetry: () => void;
 }
 
-export const ErrorShutter: React.FC<ErrorShutterProps> = ({
-  isVisible,
-  error,
-  onRetry,
-}) => {
+export function ErrorShutter({ isVisible, error, onRetry }: ErrorShutterProps) {
   const [shouldBlur, setShouldBlur] = useState(false);
+  const [shouldShow, setShouldShow] = useState(false);
+  const [shutterTop, setShutterTop] = useState("-100%");
 
   useEffect(() => {
     if (isVisible) {
-      // Blur après un court délai pour sync avec animation
-      setTimeout(() => setShouldBlur(true), 100);
+      setShouldShow(true);
+      setShutterTop("-100%");
+
+      setTimeout(() => {
+        setShutterTop("0");
+        setShouldBlur(true);
+      }, 50);
     } else {
+      setShutterTop("-100%");
       setShouldBlur(false);
+
+      setTimeout(() => {
+        setShouldShow(false);
+      }, 800);
     }
   }, [isVisible]);
 
-  if (!error) return null;
+  if (!error || !shouldShow) return null;
 
   return (
     <>
-      {/* Blur overlay sur l'app */}
+      {/* Blur overlay */}
       <div
-        className={`fixed inset-0 transition-all duration-500 pointer-events-none ${
-          shouldBlur ? "backdrop-blur-[10px]" : ""
-        }`}
-        style={{ zIndex: 998 }}
+        style={{
+          position: "fixed",
+          inset: 0,
+          backdropFilter: shouldBlur ? "blur(10px)" : "blur(0px)",
+          WebkitBackdropFilter: shouldBlur ? "blur(10px)" : "blur(0px)",
+          transition: "backdrop-filter 0.5s, -webkit-backdrop-filter 0.5s",
+          pointerEvents: "none",
+          zIndex: 998,
+        }}
       />
 
       {/* Container du rideau */}
       <div
-        className={`fixed inset-0 pointer-events-none transition-opacity duration-300 ${
-          isVisible ? "opacity-100 pointer-events-auto" : "opacity-0"
-        }`}
-        style={{ zIndex: 999 }}
+        style={{
+          position: "fixed",
+          inset: 0,
+          pointerEvents: "auto",
+          zIndex: 999,
+        }}
       >
         {/* Rideau métallique */}
         <div
-          className={`absolute left-0 w-full h-full transition-all duration-[800ms] ${
-            isVisible ? "top-0" : "-top-full"
-          }`}
           style={{
+            position: "absolute",
+            left: 0,
+            top: shutterTop,
+            width: "100%",
+            height: "100%",
+            transition: "top 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
             background: `repeating-linear-gradient(
               0deg,
               #3a3a3a 0px,
@@ -65,13 +83,14 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
               inset 0 2px 10px rgba(0,0,0,0.5),
               0 10px 40px rgba(0,0,0,0.8)
             `,
-            transitionTimingFunction: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
           }}
         >
           {/* Reflets métalliques */}
           <div
-            className="absolute inset-0 pointer-events-none"
             style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
               background: `repeating-linear-gradient(
                 0deg,
                 transparent 0px,
@@ -86,8 +105,11 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
 
           {/* Rivets (haut) */}
           <div
-            className="absolute w-full h-[30px] top-5"
             style={{
+              position: "absolute",
+              width: "100%",
+              height: "30px",
+              top: "20px",
               background: `
                 radial-gradient(circle at 20px center, #555 8px, transparent 8px),
                 radial-gradient(circle at 60px center, #555 8px, transparent 8px),
@@ -100,8 +122,11 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
 
           {/* Rivets (bas) */}
           <div
-            className="absolute w-full h-[30px] bottom-5"
             style={{
+              position: "absolute",
+              width: "100%",
+              height: "30px",
+              bottom: "20px",
               background: `
                 radial-gradient(circle at 20px center, #555 8px, transparent 8px),
                 radial-gradient(circle at 60px center, #555 8px, transparent 8px),
@@ -112,10 +137,16 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
             }}
           />
 
-          {/* Poignée du rideau */}
+          {/* Poignée */}
           <div
-            className="absolute bottom-[30px] left-1/2 -translate-x-1/2 w-[100px] h-[15px] rounded-[10px]"
             style={{
+              position: "absolute",
+              bottom: "30px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "100px",
+              height: "15px",
+              borderRadius: "10px",
               background: "linear-gradient(180deg, #666 0%, #333 100%)",
               boxShadow: `
                 0 4px 10px rgba(0,0,0,0.5),
@@ -124,10 +155,12 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
             }}
           />
 
-          {/* Ombres dynamiques */}
+          {/* Ombres */}
           <div
-            className="absolute inset-0 pointer-events-none"
             style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
               background: `radial-gradient(
                 ellipse at center,
                 transparent 30%,
@@ -139,14 +172,24 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
 
         {/* Contenu erreur */}
         <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white z-10 transition-opacity duration-500 px-4 ${
-            isVisible ? "opacity-100 delay-500" : "opacity-0"
-          }`}
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            textAlign: "center",
+            color: "white",
+            zIndex: 10,
+            padding: "0 1rem",
+            opacity: isVisible ? 1 : 0,
+            transition: "opacity 0.5s 0.5s",
+          }}
         >
-          {/* Icône erreur */}
+          {/* Icône */}
           <div
-            className="text-[80px] mb-5 animate-pulse"
             style={{
+              fontSize: "80px",
+              marginBottom: "20px",
               filter: "drop-shadow(0 4px 20px rgba(255, 107, 107, 0.6))",
               animation: "errorPulse 2s infinite",
             }}
@@ -156,8 +199,12 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
 
           {/* Titre */}
           <h1
-            className="text-4xl md:text-5xl font-black mb-5 uppercase tracking-[4px]"
             style={{
+              fontSize: "clamp(2rem, 5vw, 3rem)",
+              fontWeight: 900,
+              marginBottom: "20px",
+              textTransform: "uppercase",
+              letterSpacing: "4px",
               textShadow: `
                 0 2px 10px rgba(0,0,0,0.5),
                 0 0 20px rgba(255,107,107,0.5)
@@ -169,39 +216,62 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
 
           {/* Message */}
           <p
-            className="text-lg md:text-xl max-w-[600px] mx-auto mb-10 leading-relaxed opacity-95"
             style={{
+              fontSize: "clamp(1rem, 3vw, 1.25rem)",
+              maxWidth: "600px",
+              margin: "0 auto 2.5rem",
+              lineHeight: 1.6,
+              opacity: 0.95,
               textShadow: "0 2px 10px rgba(0,0,0,0.5)",
             }}
           >
             {error.message}
           </p>
 
-          {/* Code d'erreur (si présent) */}
+          {/* Code */}
           {error.code && (
-            <p className="text-sm opacity-60 mb-6 font-mono tracking-wider">
+            <p
+              style={{
+                fontSize: "0.875rem",
+                opacity: 0.6,
+                marginBottom: "1.5rem",
+                fontFamily: "monospace",
+                letterSpacing: "0.1em",
+              }}
+            >
               Code: {error.code}
             </p>
           )}
 
-          {/* Bouton retry */}
+          {/* Bouton */}
           <button
             onClick={onRetry}
-            className="px-12 py-4 rounded-full text-xl font-bold uppercase tracking-[2px] transition-all duration-300 hover:-translate-y-1 active:translate-y-0"
             style={{
+              padding: "1rem 3rem",
+              borderRadius: "50px",
+              fontSize: "1.25rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+              border: "none",
+              cursor: "pointer",
               background: "linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%)",
+              color: "white",
               boxShadow: `
                 0 8px 25px rgba(255, 107, 107, 0.4),
                 inset 0 2px 5px rgba(255,255,255,0.2)
               `,
+              transition: "all 0.3s",
             }}
             onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-3px)";
               e.currentTarget.style.boxShadow = `
                 0 12px 35px rgba(255, 107, 107, 0.5),
                 inset 0 2px 5px rgba(255,255,255,0.3)
               `;
             }}
             onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
               e.currentTarget.style.boxShadow = `
                 0 8px 25px rgba(255, 107, 107, 0.4),
                 inset 0 2px 5px rgba(255,255,255,0.2)
@@ -213,7 +283,7 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
         </div>
       </div>
 
-      {/* Animation CSS dans un style tag */}
+      {/* Animation CSS */}
       <style>{`
         @keyframes errorPulse {
           0%, 100% { transform: scale(1); }
@@ -222,4 +292,4 @@ export const ErrorShutter: React.FC<ErrorShutterProps> = ({
       `}</style>
     </>
   );
-};
+}

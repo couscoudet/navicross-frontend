@@ -1,6 +1,6 @@
 // src/contexts/ErrorContext.tsx
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 import { ErrorShutter } from "@/components/error/ErrorShutter";
 import type { ErrorDetails, ErrorState } from "@/types/error.types";
 
@@ -13,9 +13,7 @@ interface ErrorContextValue {
 
 const ErrorContext = createContext<ErrorContextValue | undefined>(undefined);
 
-export const ErrorProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export function ErrorProvider({ children }: { children: any }) {
   const [state, setState] = useState<ErrorState>({
     isVisible: false,
     error: null,
@@ -39,13 +37,12 @@ export const ErrorProvider: React.FC<{ children: React.ReactNode }> = ({
       isVisible: false,
     }));
 
-    // Nettoyer l'erreur après l'animation de fermeture
     setTimeout(() => {
       setState({
         isVisible: false,
         error: null,
       });
-    }, 800); // Durée de l'animation de remontée
+    }, 800);
   }, []);
 
   return (
@@ -65,12 +62,12 @@ export const ErrorProvider: React.FC<{ children: React.ReactNode }> = ({
       />
     </ErrorContext.Provider>
   );
-};
+}
 
-export const useError = () => {
+export function useError() {
   const context = useContext(ErrorContext);
   if (!context) {
-    throw new Error("useError must be used within an ErrorProvider");
+    throw new Error("useError must be used within ErrorProvider");
   }
   return context;
-};
+}

@@ -27,12 +27,10 @@ import type {
 } from "@/types";
 import { useError } from "@/contexts/ErrorContext";
 
-const { showError } = useError();
-
 export const EventDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-
+  const { showError } = useError();
   const [selectedType, setSelectedType] = useState<
     "barrier" | "segment" | "zone" | undefined
   >();

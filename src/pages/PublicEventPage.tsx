@@ -18,8 +18,6 @@ import { api } from "@/services/api";
 import type { Event, Closure } from "@/types";
 import { useError } from "@/contexts/ErrorContext";
 
-const { showError } = useError();
-
 interface Coordinates {
   lng: number;
   lat: number;
@@ -81,6 +79,8 @@ export const PublicEventPage: React.FC = () => {
 
   // Tutorial
   const { autoStartTutorial } = useTutorial();
+
+  const { showError } = useError();
 
   // Auto-dÃ©marrer le tutoriel Ã  la premiÃ¨re visite
   useEffect(() => {

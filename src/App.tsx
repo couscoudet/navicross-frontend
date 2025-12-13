@@ -3,13 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TutorialProvider } from "@/contexts/TutorialContext";
+import { ErrorProvider } from "@/contexts/ErrorContext";
 import { TutorialTooltip } from "@/components/tutorial/TutorialTooltip";
 import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { AdminPage } from "@/pages/AdminPage";
 import { EventDetailPage } from "@/pages/EventDetailPage";
 import { PublicEventPage } from "@/pages/PublicEventPage";
-import { ErrorProvider } from "./contexts/ErrorContext";
 
 // Configuration React Query
 const queryClient = new QueryClient({

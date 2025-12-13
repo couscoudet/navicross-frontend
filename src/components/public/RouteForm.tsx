@@ -3,8 +3,6 @@ import { Search, Navigation, Locate, MapPin } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useError } from "@/contexts/ErrorContext";
 
-const { showError } = useError();
-
 interface Coordinates {
   lng: number;
   lat: number;
@@ -52,6 +50,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
 
   const originDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const destDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const { showError } = useError();
 
   // Sync with parent origin/destination
   React.useEffect(() => {
