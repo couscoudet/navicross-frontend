@@ -20,6 +20,7 @@ interface RouteProgress {
 }
 
 export type SelectionMode = "none" | "origin" | "destination";
+export type TrackerType = "beer" | "medal" | "car" | "monster" | "triangle";
 
 interface PublicMapProps {
   closures: Closure[];
@@ -30,6 +31,8 @@ interface PublicMapProps {
   navigating?: boolean;
   routeProgress?: RouteProgress | null;
   selectionMode: SelectionMode;
+  trackerType?: TrackerType;
+  trackerColor?: string;
   onOriginSelect?: (coords: Coordinates) => void;
   onDestinationSelect?: (coords: Coordinates) => void;
 }
@@ -43,6 +46,8 @@ export const PublicMap: React.FC<PublicMapProps> = ({
   navigating,
   routeProgress,
   selectionMode,
+  trackerType = "beer",
+  trackerColor = "#FF8C00",
   onOriginSelect,
   onDestinationSelect,
 }) => {
@@ -365,24 +370,52 @@ export const PublicMap: React.FC<PublicMapProps> = ({
       const smoothBearing = lastBearingRef.current + bearingDiff * 0.3;
       lastBearingRef.current = smoothBearing;
 
+      // Fonction pour générer le HTML du traceur
+      const getTrackerHTML = (): string => {
+        const pulseColor =
+          trackerType === "triangle" ? trackerColor : "#FF8C00";
+
+        if (trackerType === "triangle") {
+          return `
+            <div class="relative" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+              <div class="absolute inset-0 rounded-full opacity-30 animate-ping" style="width: 70px; height: 70px; background-color: ${trackerColor};"></div>
+              <svg width="48" height="48" viewBox="0 0 100 100" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+                <polygon points="50,10 90,80 10,80" fill="${trackerColor}" stroke="white" stroke-width="4"/>
+                <text x="50" y="70" font-family="Arial" font-size="32" font-weight="900" fill="white" text-anchor="middle">1</text>
+              </svg>
+            </div>
+          `;
+        }
+
+        const emojiMap = {
+          beer: "🍺",
+          medal: "🥇",
+          car: "🚗",
+          monster: "👾",
+        };
+        const emoji = emojiMap[trackerType as keyof typeof emojiMap] || "🍺";
+
+        return `
+          <div class="relative" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+            <div class="absolute inset-0 bg-orange-400 rounded-full opacity-30 animate-ping" style="width: 70px; height: 70px;"></div>
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+              <div style="font-size: 48px; line-height: 1;">${emoji}</div>
+              <div style="position: absolute; top: 8px; background: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid ${pulseColor}; font-weight: 900; font-size: 16px; color: ${pulseColor};">1</div>
+            </div>
+          </div>
+        `;
+      };
+
       if (currentPosMarkerRef.current) {
         currentPosMarkerRef.current.setLngLat([
           displayPosition.lng,
           displayPosition.lat,
         ]);
-        // ✅ Pas de rotation du marker (bière reste droite)
+        // ✅ Pas de rotation du marker (traceur reste droit)
       } else {
         const el = document.createElement("div");
         el.className = "navigation-marker";
-        el.innerHTML = `
-          <div class="relative" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
-            <div class="absolute inset-0 bg-orange-400 rounded-full opacity-30 animate-ping" style="width: 70px; height: 70px;"></div>
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
-              <div style="font-size: 48px; line-height: 1;">🍺</div>
-              <div style="position: absolute; top: 8px; background: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid #FF8C00; font-weight: 900; font-size: 16px; color: #FF8C00;">1</div>
-            </div>
-          </div>
-        `;
+        el.innerHTML = getTrackerHTML();
         currentPosMarkerRef.current = new maplibregl.Marker({
           element: el,
           anchor: "center",
@@ -419,7 +452,23 @@ export const PublicMap: React.FC<PublicMapProps> = ({
         cancelAnimationFrame(cameraAnimationRef.current);
       cameraAnimationRef.current = requestAnimationFrame(smoothCameraFollow);
     }
-  }, [currentPosition, navigating, route, mapLoaded, routeProgress]);
+  }, [
+    currentPosition,
+    navigating,
+    route,
+    mapLoaded,
+    routeProgress,
+    trackerType,
+    trackerColor,
+  ]);
+
+  // Forcer recréation du marker quand trackerType change
+  useEffect(() => {
+    if (navigating && currentPosMarkerRef.current) {
+      currentPosMarkerRef.current.remove();
+      currentPosMarkerRef.current = null;
+    }
+  }, [trackerType, trackerColor, navigating]);
 
   const calculateBearing = (
     from: Coordinates,
