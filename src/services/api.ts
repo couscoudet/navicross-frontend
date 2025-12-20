@@ -14,32 +14,39 @@ import type {
   ApiError,
 } from "@/types";
 
-// Configuration de base
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const client = axios.create({
   baseURL: API_URL,
-  withCredentials: true, // Important pour envoyer automatiquement les cookies
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Pas d'intercepteur request - les cookies sont envoyés automatiquement
+// ✅ Callback pour logout automatique (sera défini par AuthContext)
+let onUnauthorized: (() => void) | null = null;
 
-// Intercepteur pour gérer les erreurs globalement
+export const setUnauthorizedCallback = (callback: () => void) => {
+  onUnauthorized = callback;
+};
+
+// ✅ Intercepteur response : déconnexion auto sur 401/403
 client.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
-    // Log des erreurs pour debug
+    // Session expirée ou invalide
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.warn("⚠️ Session expirée, déconnexion automatique");
+      onUnauthorized?.();
+    }
+
     console.error("API Error:", error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
 
-// API client
 export const api = {
-  // Auth endpoints
   auth: {
     register: async (data: RegisterDto): Promise<AuthResponse> => {
       const response = await client.post<AuthResponse>("/auth/register", data);
@@ -55,25 +62,19 @@ export const api = {
       await client.post("/auth/logout");
     },
 
-    // Vérifier si l'utilisateur est connecté (utile au chargement de l'app)
+    // ✅ Vérifier la session backend (à appeler au boot)
     checkSession: async (): Promise<{ user: AuthResponse["user"] } | null> => {
       try {
-        // Endpoint à implémenter dans le backend si nécessaire
-        // Pour l'instant on peut utiliser GET /events/me qui requiert auth
-        const response = await client.get("/events/me");
-        if (response.status === 200) {
-          // L'utilisateur est connecté, mais on n'a pas ses infos ici
-          // Il faudra les stocker en localStorage après login/register
-          return null;
-        }
-        return null;
+        const response = await client.get<{ user: AuthResponse["user"] }>(
+          "/auth/me"
+        );
+        return response.data;
       } catch {
         return null;
       }
     },
   },
 
-  // Events endpoints
   events: {
     getAll: async (): Promise<Event[]> => {
       const response = await client.get<Event[]>("/events");
@@ -105,7 +106,6 @@ export const api = {
     },
   },
 
-  // Closures endpoints
   closures: {
     getByEvent: async (slug: string): Promise<Closure[]> => {
       const response = await client.get<Closure[]>(`/events/${slug}/closures`);
@@ -137,7 +137,6 @@ export const api = {
     },
   },
 
-  // Route endpoint
   route: {
     calculate: async (data: CalculateRouteDto): Promise<RouteResponse> => {
       const response = await client.post<RouteResponse>("/route", data);
@@ -146,7 +145,6 @@ export const api = {
   },
 };
 
-// Helper pour extraire les messages d'erreur
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     const apiError = error.response?.data as ApiError | undefined;

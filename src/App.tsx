@@ -10,6 +10,7 @@ import { HomePage } from "@/pages/HomePage";
 import { AdminPage } from "@/pages/AdminPage";
 import { EventDetailPage } from "@/pages/EventDetailPage";
 import { PublicEventPage } from "@/pages/PublicEventPage";
+import { Toaster } from "react-hot-toast";
 
 // Configuration React Query
 const queryClient = new QueryClient({
@@ -117,6 +118,7 @@ function App() {
       <BrowserRouter>
         <ErrorProvider>
           <AuthProvider>
+            <Toaster position="top-center" />
             <TutorialProvider>
               <AppRoutes />
               <TutorialTooltip />

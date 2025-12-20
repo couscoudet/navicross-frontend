@@ -1,10 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { api, getErrorMessage } from "@/services/api";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import toast from "react-hot-toast";
+import { api, getErrorMessage, setUnauthorizedCallback } from "@/services/api";
 import type { User, RegisterDto, LoginDto } from "@/types";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  sessionExpired: boolean;
   login: (data: LoginDto) => Promise<void>;
   register: (data: RegisterDto) => Promise<void>;
   logout: () => Promise<void>;
@@ -13,8 +21,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper pour le localStorage (user info uniquement)
-// Le cookie session_id est maintenant géré par le serveur via Set-Cookie
 const USER_STORAGE_KEY = "navicross_user";
 
 const getStoredUser = (): User | null => {
@@ -39,22 +45,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
-  // Au chargement, récupérer l'utilisateur du localStorage
-  useEffect(() => {
-    const storedUser = getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setLoading(false);
+  // ✅ Logout avec délai pour toast
+  const clearSession = useCallback(() => {
+    console.log("🔴 Clearing session...");
+
+    // ✅ Bloquer l'UI avec spinner
+    setSessionExpired(true);
+
+    // ✅ Toast visible
+    toast.error("Votre session a expiré. Reconnexion requise.", {
+      duration: 3000,
+      position: "top-center",
+    });
+
+    // ✅ Nettoyage état
+    setUser(null);
+    setStoredUser(null);
+
+    // ✅ Redirection après 3s
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 3000);
   }, []);
+
+  // ✅ Enregistrer le callback AVANT le boot check
+  useEffect(() => {
+    console.log("📌 Registering unauthorized callback");
+    setUnauthorizedCallback(clearSession);
+  }, [clearSession]);
+
+  // ✅ Au boot : vérifier que la session backend est valide
+  useEffect(() => {
+    const initAuth = async () => {
+      const storedUser = getStoredUser();
+
+      if (!storedUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const session = await api.auth.checkSession();
+        if (session?.user) {
+          console.log("✅ Session valide:", session.user);
+          setUser(session.user);
+          setStoredUser(session.user);
+        } else {
+          console.warn("⚠️ Session invalide (no user in response)");
+          clearSession();
+        }
+      } catch (error) {
+        console.error("❌ Session check failed:", error);
+        clearSession();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, [clearSession]);
 
   const register = async (data: RegisterDto) => {
     try {
       const response = await api.auth.register(data);
       setUser(response.user);
       setStoredUser(response.user);
-      // Le cookie session_id est défini automatiquement par le serveur via Set-Cookie
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -65,7 +122,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await api.auth.login(data);
       setUser(response.user);
       setStoredUser(response.user);
-      // Le cookie session_id est défini automatiquement par le serveur via Set-Cookie
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -79,23 +135,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setUser(null);
       setStoredUser(null);
-      // Le cookie session_id est supprimé automatiquement par le serveur
+      window.location.href = "/login";
     }
   };
 
   const value: AuthContextType = {
     user,
     loading,
+    sessionExpired,
     login,
     register,
     logout,
     isAuthenticated: !!user,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+
+      {/* ✅ Overlay spinner quand session expirée */}
+      {sessionExpired && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center">
+          <div className="bg-white rounded-lg p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-red-600"></div>
+            <p className="text-lg font-semibold text-gray-900">
+              Session expirée
+            </p>
+            <p className="text-sm text-gray-600 text-center">
+              Redirection vers la page de connexion...
+            </p>
+          </div>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 };
 
-// Hook personnalisé pour utiliser le contexte
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
